@@ -1,0 +1,21 @@
+{
+  "name": "Nestbau",
+  "short_name": "Nestbau",
+  "description": "Haushalt, Aufgaben, Kalender, Finanzen und Kochbuch an einem Ort.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f2ee",
+  "theme_color": "#1c7d70",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "lifestyle"]
+}

@@ -1,0 +1,21 @@
+# Betriebssystem
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+
+# Node/Python
+node_modules/
+__pycache__/
+*.pyc
+.env
+
+# Sicherheit
+.claudian/
+.obsidian/
+*.local.*
