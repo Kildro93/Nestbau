@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nestbau - Firebase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #faf7f2; color: #2c2a26; }
+    .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 20px; background: #faf7f2; }
+    .screen.hidden { display: none; }
+    .box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 400px; width: 100%; }
+    h1 { font-size: 24px; margin-bottom: 8px; color: #1c7d70; }
+    p { font-size: 14px; color: #7a7268; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+    input:focus { outline: none; border-color: #1c7d70; box-shadow: 0 0 0 3px rgba(28, 125, 112, 0.1); }
+    .button-group { display: flex; gap: 8px; margin-top: 24px; }
+    button { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    .btn-primary { background: #1c7d70; color: white; }
+    .btn-primary:hover { background: #155d54; }
+    .btn-secondary { background: #eee; color: #2c2a26; }
+    .btn-secondary:hover { background: #ddd; }
+    .error { color: #b5342a; font-size: 13px; margin-top: 8px; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #eee; border-top-color: #1c7d70; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #logoutBtn { position: fixed; top: 10px; right: 60px; padding: 8px 16px; background: #b5342a; color: white; border: none; border-radius: 6px; cursor: pointer; z-index: 1000; display: none; }
+  </style>
+</head>
+<body>
+
+<div class="screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Nestbau wird geladen...</p>
+</div>
+
+<div class="screen" id="loginScreen">
+  <div class="box">
+    <h1>Nestbau</h1>
+    <p id="authMode">Anmelden</p>
+
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" placeholder="deine@email.de">
+    </div>
+
+    <div class="form-group">
+      <label for="password">Passwort</label>
+      <input type="password" id="password" placeholder="••••••••">
+    </div>
+
+    <div class="form-group" id="nameGroup" style="display:none;">
+      <label for="name">Name</label>
+      <input type="text" id="name" placeholder="Dein Name">
+    </div>
+
+    <div id="errorMsg" class="error"></div>
+
+    <div class="button-group">
+      <button class="btn-primary" id="authBtn">Anmelden</button>
+      <button class="btn-secondary" id="toggleBtn">Registrieren</button>
+    </div>
+  </div>
+</div>
+
+<button id="logoutBtn">Logout</button>
+<div id="appContainer" style="display:none;"></div>
+
+<script type="module">
+  import { auth, login, register, logout, onAuthStateChanged } from './src/firebase-config.js';
+
+  let isRegisterMode = false;
+  const screens = {
+    login: document.getElementById('loginScreen'),
+    loading: document.getElementById('loadingScreen'),
+    app: document.getElementById('appContainer'),
+    logout: document.getElementById('logoutBtn')
+  };
+
+  const inputs = {
+    email: document.getElementById('email'),
+    password: document.getElementById('password'),
+    name: document.getElementById('name'),
+    error: document.getElementById('errorMsg')
+  };
+
+  const buttons = {
+    auth: document.getElementById('authBtn'),
+    toggle: document.getElementById('toggleBtn'),
+    logout: document.getElementById('logoutBtn')
+  };
+
+  const modeText = document.getElementById('authMode');
+  const nameGroup = document.getElementById('nameGroup');
+
+  // Auth-Status überwachen
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      screens.login.classList.add('hidden');
+      screens.loading.classList.remove('hidden');
+      screens.logout.style.display = 'block';
+      loadApp();
+    } else {
+      screens.login.classList.remove('hidden');
+      screens.loading.classList.add('hidden');
+      screens.app.style.display = 'none';
+      screens.logout.style.display = 'none';
+    }
+  });
+
+  buttons.toggle.addEventListener('click', () => {
+    isRegisterMode = !isRegisterMode;
+    modeText.textContent = isRegisterMode ? 'Registrieren' : 'Anmelden';
+    buttons.auth.textContent = isRegisterMode ? 'Registrieren' : 'Anmelden';
+    buttons.toggle.textContent = isRegisterMode ? 'Anmelden' : 'Registrieren';
+    nameGroup.style.display = isRegisterMode ? 'block' : 'none';
+    inputs.error.textContent = '';
+  });
+
+  buttons.auth.addEventListener('click', async () => {
+    const email = inputs.email.value.trim();
+    const password = inputs.password.value;
+    const name = inputs.name.value.trim();
+
+    if (!email || !password) {
+      inputs.error.textContent = 'Email und Passwort erforderlich';
+      return;
+    }
+
+    try {
+      if (isRegisterMode) {
+        if (!name) {
+          inputs.error.textContent = 'Name erforderlich';
+          return;
+        }
+        await register(email, password, name);
+      } else {
+        await login(email, password);
+      }
+      inputs.error.textContent = '';
+    } catch (err) {
+      inputs.error.textContent = err.message || 'Fehler bei der Anmeldung';
+    }
+  });
+
+  buttons.logout.addEventListener('click', async () => {
+    if (confirm('Wirklich abmelden?')) {
+      await logout();
+      screens.app.style.display = 'none';
+    }
+  });
+
+  async function loadApp() {
+    try {
+      const response = await fetch('index.html');
+      const html = await response.text();
+      screens.app.innerHTML = html;
+      screens.app.style.display = 'block';
+      screens.loading.classList.add('hidden');
+    } catch (err) {
+      inputs.error.textContent = 'App konnte nicht geladen werden';
+      screens.loading.classList.add('hidden');
+      screens.login.classList.remove('hidden');
+    }
+  }
+</script>
+
+</body>
+</html>
