@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests, Health, Security, Performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Abhaengigkeiten
+        run: npm ci
+
+      - name: Chromium fuer Playwright
+        run: npx playwright install --with-deps chromium
+
+      # Die Store-Assets werden aus icon.svg erzeugt und sind eingecheckt.
+      # Wir bauen sie neu und pruefen, dass sich nichts unterscheidet --
+      # so faellt auf, wenn jemand icon.svg aendert und die PNGs vergisst.
+      - name: Store-Assets neu erzeugen
+        run: npm run playstore:assets
+
+      - name: Assets sind aktuell
+        run: |
+          if ! git diff --quiet -- assets/icons assets/play/icon-512.png assets/play/feature-graphic.png; then
+            echo "::error::Die eingecheckten Icons passen nicht zu icon.svg."
+            echo "Lokal ausfuehren: npm run playstore:assets && git add assets"
+            git diff --stat -- assets
+            exit 1
+          fi
+
+      - name: Health-Check
+        run: node scripts/health-check.mjs --live --json
+
+      - name: Test-Suite
+        run: npm test
+
+      - name: Security-Check
+        run: npm run audit:security
+
+      - name: Performance-Audit
+        run: npm run audit:perf -- --json
+
+      - name: Play-Store-Bereitschaft
+        # Informativ: haengt an Keystore und oeffentlicher URL, die es in CI
+        # nicht gibt. Soll den Lauf deshalb nicht rot faerben.
+        run: node scripts/build-twa.mjs --check || true
+
+      - name: Berichte hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            reports/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Fehler-Screenshots hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fehler-screenshots
+          path: reports/screenshots/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  screenshots:
+    name: Play-Store-Screenshots
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run playstore:assets
+      - run: node scripts/capture-screenshots.mjs
+      - run: node scripts/capture-screenshots.mjs --dark
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-store-assets
+          path: assets/play/
+          retention-days: 90

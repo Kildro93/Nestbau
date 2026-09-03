@@ -19,3 +19,21 @@ __pycache__/
 .claudian/
 .obsidian/
 *.local.*
+
+# Build- und Testwerkzeuge
+node_modules/
+reports/
+playwright-report/
+test-results/
+
+# Android/Play-Store-Build
+android/
+*.jks
+*.keystore
+*.aab
+*.apk
+keystore.properties
+local.properties
+
+# Play Console
+play-service-account*.json

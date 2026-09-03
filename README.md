@@ -50,3 +50,59 @@ Vor grösseren Änderungen lohnt sich eine Sicherung – Browser-Cache leeren l�
 ## Änderungen
 
 Alles steckt in `index.html`. Bearbeiten, speichern, Seite mit Strg+F5 neu laden.
+
+---
+
+## Entwicklung, Tests und Play-Store-Build
+
+Das Nötigste in einem Schritt:
+
+```bash
+npm run setup
+```
+
+Das installiert die Abhängigkeiten, erzeugt die Store-Assets und lässt
+Health-Check und Tests einmal durchlaufen.
+
+### Kommandos
+
+| Kommando | Zweck |
+|---|---|
+| `npm run dev` | App auf http://localhost:3000 |
+| `npm run dev -- --host 0.0.0.0` | zusätzlich im WLAN erreichbar (PWA am Handy testen) |
+| `npm test` | Test-Suite (43 Tests) |
+| `npm run health` | schneller Gesundheitscheck |
+| `npm run health:live` | zusätzlich im echten Chromium |
+| `npm run audit:security` | Security-Check |
+| `npm run audit:perf` | Performance-Budgets |
+| `npm run ci` | alles zusammen — vor jedem Commit |
+| `npm run report` | Statusbericht nach `reports/` |
+| `npm run update` | von GitHub holen und sofort prüfen |
+
+### Play Store
+
+```bash
+npm run playstore:assets              # Icons, Feature-Graphic
+node scripts/capture-screenshots.mjs  # Phone-Screenshots aus der echten App
+node scripts/build-twa.mjs --check    # Voraussetzungen prüfen
+```
+
+Der vollständige Weg steht in [PLAY-STORE.md](PLAY-STORE.md).
+Offene Punkte und Aufgabenverteilung: [BOT-FEEDBACK.md](BOT-FEEDBACK.md).
+
+### Aufbau
+
+```
+index.html                  die komplette App
+manifest.json  sw.js  icon.svg
+assets/icons/               abgeleitete PWA-Icons (aus icon.svg erzeugt)
+assets/play/                Store-Icon, Feature-Graphic, Screenshots
+scripts/                    Server, Health-Check, Audits, Build
+tests/unit/                 Assets und DOM-Struktur
+tests/integration/          App-Verhalten in jsdom, Dev-Server
+.github/workflows/          CI und GitHub-Pages-Deploy
+```
+
+Die Dateien unter `assets/icons/` und `assets/play/` werden aus `icon.svg`
+erzeugt. Wer das SVG ändert, führt `npm run playstore:assets` aus — die CI
+prüft, dass beides zusammenpasst.

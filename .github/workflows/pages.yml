@@ -1,0 +1,74 @@
+name: GitHub Pages
+
+# Veroeffentlicht die PWA unter https://<user>.github.io/Nestbau/
+#
+# Das ist die Voraussetzung fuer den Play Store: eine TWA laedt die App von
+# einer oeffentlichen HTTPS-URL. Ohne diesen Schritt laesst sich kein AAB
+# bauen, das im Store funktioniert.
+#
+# Einmalig in den Repo-Einstellungen aktivieren:
+#   Settings > Pages > Source: "GitHub Actions"
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ein Deploy zur Zeit; laufende nicht abbrechen, damit nichts halb online geht.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Store-Assets erzeugen
+        run: npm run playstore:assets
+
+      - name: Nur die App-Dateien einsammeln
+        run: |
+          mkdir -p _site
+          cp index.html manifest.json sw.js icon.svg _site/
+          cp -r assets _site/
+          # .well-known nur mitnehmen, wenn es die Datei schon gibt.
+          if [ -d .well-known ]; then cp -r .well-known _site/; fi
+          # Jekyll ueberspringen, sonst ignoriert Pages Ordner mit Unterstrich.
+          touch _site/.nojekyll
+          ls -la _site
+
+      - name: Health-Check gegen die Auslieferung
+        run: node scripts/health-check.mjs
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Adresse ausgeben
+        run: |
+          echo "PWA ist online: ${{ steps.deployment.outputs.page_url }}"
+          echo "Fuer den TWA-Build in twa-manifest.json eintragen."

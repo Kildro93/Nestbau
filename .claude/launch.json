@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nestbau",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/server.mjs"],
+      "port": 3000
+    }
+  ]
+}

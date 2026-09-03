@@ -1,0 +1,32 @@
+{
+  "name": "nestbau",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Nestbau PWA - Haushalt, Aufgaben, Kalender, Finanzen, Kochbuch",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/server.mjs",
+    "start": "node scripts/server.mjs",
+    "setup": "node scripts/setup.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\"",
+    "test:integration": "node --test \"tests/integration/*.test.mjs\"",
+    "health": "node scripts/health-check.mjs",
+    "health:live": "node scripts/health-check.mjs --live",
+    "report": "node scripts/error-report.mjs",
+    "update": "node scripts/update.mjs",
+    "audit:perf": "node scripts/perf-audit.mjs",
+    "audit:security": "node scripts/security-check.mjs",
+    "playstore:assets": "node scripts/generate-store-assets.mjs",
+    "playstore:build": "node scripts/build-twa.mjs",
+    "ci": "npm run health && npm test && npm run audit:security && npm run audit:perf"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "playwright": "^1.62.1",
+    "sharp": "^0.35.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
