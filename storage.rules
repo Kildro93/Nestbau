@@ -1,0 +1,35 @@
+rules_version = '2';
+
+/* Nestbau v2 – Storage-Regeln fuer Rezept- und Zutatenfotos.
+
+   Bilder liegen unter households/{hid}/images/{datei}. Zugriff hat nur, wer im
+   passenden Firestore-Dokument als Mitglied eingetragen ist – die Mitgliedschaft
+   wird also nur an einer Stelle gepflegt.
+
+   Einspielen: firebase deploy --only storage */
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /households/{hid}/images/{file} {
+
+      function isMember() {
+        return request.auth != null
+               && request.auth.uid in firestore.get(/databases/(default)/documents/households/$(hid)).data.memberUids;
+      }
+
+      allow read: if isMember();
+
+      // Nur Bilder, hoechstens 10 MB – ein Kamerafoto vom Handy liegt darunter.
+      allow write: if isMember()
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+
+      allow delete: if isMember();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

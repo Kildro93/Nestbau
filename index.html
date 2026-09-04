@@ -727,6 +727,10 @@
       </div>
     </div>
     <p id="data-msg" style="font-size:0.72rem; color:var(--ink-soft); margin:10px 0 0; line-height:1.4;">Sicherung speichert alle Listen, Termine, Finanzen und Rezepte in eine Datei.</p>
+
+    <!-- Kalender-Verbindungen und Kochbuch-Cloud. Wird von js/nb-integrations-ui.js
+         gefuellt; ohne die Module bleibt der Bereich leer und die App laeuft wie bisher. -->
+    <div id="nb-integrations"></div>
   </div>
 </div>
 
@@ -849,6 +853,22 @@
     <div id="recipe-view-body"></div>
   </div>
 </div>
+
+<!-- Integrationsmodule (Nestbau v2). Reihenfolge zaehlt: Kern, Konfiguration,
+     lokale Ueberschreibungen, dann die Anbieter. Alle klassische Skripte ohne
+     Build-Schritt, damit index.html weiterhin direkt lauffaehig bleibt.
+     nb-config.local.js enthaelt die Client-IDs und ist nicht im Repository –
+     fehlt sie, laden die Module trotzdem und melden "nicht eingerichtet". -->
+<script src="js/nb-core.js"></script>
+<script src="js/nb-config.js"></script>
+<script src="js/nb-config.local.js" onerror="console.info('[nb] js/nb-config.local.js fehlt – Integrationen bleiben inaktiv.')"></script>
+<script src="js/nb-oauth.js"></script>
+<script src="js/nb-google-calendar.js"></script>
+<script src="js/nb-outlook-calendar.js"></script>
+<script src="js/nb-calendar-sync.js"></script>
+<script src="js/nb-firebase.js"></script>
+<script src="js/nb-migrate.js"></script>
+<script src="js/nb-integrations-ui.js"></script>
 
 <script id="state-data" type="application/json">{"people":{"a":{"name":"Ich","color":"flame"},"b":{"name":"Partnerin","color":"teal"}},"lists":[{"id":"l-aufgaben","name":"Aufgaben","kind":"todo","items":[]},{"id":"l-einkaufen","name":"Einkäufe","kind":"shopping","items":[]}],"activeListId":"l-aufgaben","events":[],"subscriptions":[],"ingredients":[],"ingredientCategories":[],"ingredientGroups":[],"recipes":[],"menuPlan":{}}</script>
 
@@ -999,6 +1019,9 @@
   }
   function persist() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    // Signal fuer die Integrationsmodule (js/nb-firebase.js): sie laden danach
+    // gebuendelt hoch, was sich tatsaechlich geaendert hat.
+    if (window.NB && window.NB.bus) window.NB.bus.emit("app:persist");
   }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function escapeHtml(s) {
@@ -1448,6 +1471,13 @@
   var calAnchor = new Date();
   var calSelected = dateKey(new Date());
   function eventsOnDay(key) { return state.events.filter(function (e) { return e.date === key; }); }
+  // Herkunftskennzeichen fuer Termine, die aus einem verbundenen Kalender stammen.
+  var SOURCE_LABELS = { google: "Google", outlook: "Outlook" };
+  function sourceBadge(e) {
+    if (!e.source) return "";
+    return ' <span style="font-size:0.66rem;color:var(--ink-soft);border:1px solid var(--line);border-radius:6px;padding:0 4px;">' +
+      escapeHtml(SOURCE_LABELS[e.source] || e.source) + "</span>";
+  }
   function weekBounds(d) {
     var monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     var days = [];
@@ -1522,7 +1552,7 @@
     evs.forEach(function (e) {
       var row = document.createElement("div"); row.className = "list-row";
       row.innerHTML = '<span class="cat-dot" style="background:var(--' + catInfo(e.category).tok + ')"></span>' +
-        '<div class="item-body"><div class="row-title">' + escapeHtml(e.title) + '</div><div class="row-meta">' + (e.allday ? "Ganztägig" : (e.start || "") + (e.end ? " – " + e.end : "")) + (e.location ? " · " + escapeHtml(e.location) : "") + "</div></div>";
+        '<div class="item-body"><div class="row-title">' + escapeHtml(e.title) + sourceBadge(e) + '</div><div class="row-meta">' + (e.allday ? "Ganztägig" : (e.start || "") + (e.end ? " – " + e.end : "")) + (e.location ? " · " + escapeHtml(e.location) : "") + "</div></div>";
       wrap.appendChild(row);
     });
     document.getElementById("agenda-empty").style.display = evs.length ? "none" : "block";
@@ -1540,7 +1570,7 @@
       var row = document.createElement("div"); row.className = "list-row";
       var ed = new Date(e.date);
       row.innerHTML = '<span class="cat-dot" style="background:var(--' + catInfo(e.category).tok + ')"></span>' +
-        '<div class="item-body"><div class="row-title">' + escapeHtml(e.title) + '</div><div class="row-meta">' + WEEKDAYS[(ed.getDay() + 6) % 7] + " · " + (e.allday ? "Ganztägig" : (e.start || "")) + "</div></div>";
+        '<div class="item-body"><div class="row-title">' + escapeHtml(e.title) + sourceBadge(e) + '</div><div class="row-meta">' + WEEKDAYS[(ed.getDay() + 6) % 7] + " · " + (e.allday ? "Ganztägig" : (e.start || "")) + "</div></div>";
       wowrap.appendChild(row);
     });
   }
@@ -2951,7 +2981,26 @@
     renderKochbuchMenueplan();
   }
 
+  // ---------- Bruecke zu den Integrationsmodulen (js/nb-*.js) ----------
+  // Der App-Zustand bleibt hier drin; die Module bekommen nur diesen schmalen
+  // Zugang. Fehlen die Module (Datei per Doppelklick geoeffnet), aendert sich nichts.
+  window.NB = window.NB || {};
+  window.NB.app = {
+    getState: function () { return state; },
+    persist: function () { persist(); },
+    render: function () { renderAll(); },
+    categories: function () { return CATEGORIES.slice(); },
+    people: function () { return state.people; },
+    activeProfile: function () { return activeProfile; }
+  };
+
   renderAll();
+
+  if (window.NB.sync) {
+    window.NB.sync.startAuto();
+    // Beim Start einmal nachziehen, sobald die Oberflaeche steht.
+    setTimeout(function () { window.NB.sync.runAll().catch(function () {}); }, 1500);
+  }
 })();
 </script>
 <script>

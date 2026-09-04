@@ -1,0 +1,87 @@
+rules_version = '2';
+
+/* Nestbau v2 – Firestore-Regeln.
+
+   Leitgedanke: Alle Kochbuchdaten haengen unter households/{hid}. Lesen und
+   Schreiben darf nur, wer in memberUids dieses Haushalts steht. Ein Auflisten
+   aller Haushalte ist niemandem erlaubt; der Beitritt laeuft ueber die
+   Sammlung joinCodes, in der man nur ein Dokument mit exakt bekanntem Code
+   lesen kann (kein list). Wer die Haushalts-ID kennt, kennt also den Code.
+
+   Einspielen:  firebase deploy --only firestore:rules
+   Testen:      Firebase Console -> Firestore -> Regeln -> Playground */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function household(hid) {
+      return get(/databases/$(database)/documents/households/$(hid)).data;
+    }
+
+    function isMember(hid) {
+      return signedIn() && request.auth.uid in household(hid).memberUids;
+    }
+
+    // ---- Beitrittscodes ----
+    // Nur gezielter Zugriff auf einen bekannten Code. list ist nicht erlaubt,
+    // damit niemand die Codes durchprobieren oder abgreifen kann.
+    match /joinCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // ---- Haushalt ----
+    match /households/{hid} {
+      allow get: if isMember(hid);
+      allow list: if false;
+
+      allow create: if signedIn()
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.memberUids == [request.auth.uid];
+
+      // Mitglieder duerfen den Haushalt pflegen.
+      allow update: if isMember(hid)
+                    // Besitzer bleibt Besitzer, sonst koennte sich jemand hochstufen.
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+
+      // Beitritt: ein Angemeldeter darf sich selbst – und nur sich selbst –
+      // zur Mitgliederliste hinzufuegen. Sonst bleibt alles unveraendert.
+      allow update: if signedIn()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids'])
+                    && request.resource.data.memberUids.hasAll(resource.data.memberUids)
+                    && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
+                    && request.auth.uid in request.resource.data.memberUids
+                    && !(request.auth.uid in resource.data.memberUids);
+
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      // ---- Mitglieder ----
+      match /members/{uid} {
+        allow read: if isMember(hid);
+        // Jeder pflegt nur seinen eigenen Eintrag; der Besitzer darf entfernen.
+        allow create, update: if isMember(hid) && request.auth.uid == uid;
+        allow delete: if isMember(hid) && (request.auth.uid == uid || household(hid).ownerUid == request.auth.uid);
+      }
+
+      // ---- Kochbuch ----
+      match /ingredients/{doc}            { allow read, write: if isMember(hid); }
+      match /recipes/{doc}                { allow read, write: if isMember(hid); }
+      match /ingredientCategories/{doc}   { allow read, write: if isMember(hid); }
+      match /ingredientGroups/{doc}       { allow read, write: if isMember(hid); }
+      match /dishCategories/{doc}         { allow read, write: if isMember(hid); }
+      match /menuPlan/{day}               { allow read, write: if isMember(hid); }
+      match /meta/{doc}                   { allow read, write: if isMember(hid); }
+    }
+
+    // Alles, was oben nicht ausdruecklich erlaubt ist, bleibt gesperrt.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

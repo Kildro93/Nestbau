@@ -12,6 +12,24 @@ Ergänzt wurde nur ein Bereich **Daten** in den Einstellungen (Sicherung speiche
 | `manifest.json` | macht die App auf dem Handy installierbar |
 | `icon.svg` | App-Icon für den Startbildschirm |
 | `sw.js` | Offline-Support (nur bei Start über einen Server aktiv) |
+| `js/nb-*.js` | Verbindungen: Google Kalender, Outlook, Kochbuch-Cloud |
+| `oauth-callback.html` | Rückmeldeseite der Anmeldung |
+| `firestore.rules`, `storage.rules` | Zugriffsregeln für die Cloud |
+| `docs/INTEGRATIONEN.md` | Einrichtung der Verbindungen, Schritt für Schritt |
+
+## Verbindungen (optional)
+
+Google Kalender, Outlook Kalender und ein gemeinsames Kochbuch über Firebase.
+Alles davon ist freiwillig: ohne Einrichtung läuft die App genau wie bisher,
+lokal und ohne Konto. Die Karten dazu stehen im Zahnrad unter
+**Kalender verbinden** und **Cloud**.
+
+Wichtig: Diese Verbindungen brauchen einen Server (`http://localhost:…` oder
+eine HTTPS-Adresse). Beim Doppelklick auf `index.html` läuft die Seite als
+`file://` – dafür gibt es bei Google, Microsoft und Firebase keine
+registrierbare Herkunft, die Karten melden dann „Braucht http(s)".
+
+Einrichtung: [`docs/INTEGRATIONEN.md`](docs/INTEGRATIONEN.md).
 
 ## Starten
 
@@ -38,7 +56,11 @@ Zahnrad oben rechts → Abschnitt **Daten**:
   wo der Browser keine Downloads erlaubt (z. B. im Claude-Artefakt).
 
 Alles liegt im `localStorage` des Browsers unter `nestbau-state-v1`.
-Keine Cloud, kein Konto, kein Internet nötig.
+Ohne eingerichtete Verbindungen braucht die App weder Cloud noch Konto noch Internet.
+
+Die Verbindungen legen ihre Daten getrennt davon unter `nb2:…` ab – Tokens
+wandern deshalb nicht in die Sicherungsdatei und lassen sich nicht versehentlich
+auf ein anderes Gerät übertragen.
 
 **Daten aus dem Claude-Artefakt holen:** Der Browser trennt den Speicher pro Adresse,
 die lokale App startet deshalb leer. Im Artefakt die Konsole (F12) öffnen und

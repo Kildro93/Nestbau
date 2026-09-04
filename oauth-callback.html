@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Nestbau – Anmeldung</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    background: #f4f2ee; color: #2b2724;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    text-align: center; padding: 24px;
+  }
+  .box { max-width: 320px; }
+  h1 { font-size: 1.05rem; margin: 0 0 8px; }
+  p { margin: 0; color: #6b635c; font-size: 0.86rem; }
+  .err { color: #8c2f22; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1 id="head">Anmeldung wird abgeschlossen …</h1>
+  <p id="msg">Dieses Fenster schliesst sich gleich von selbst.</p>
+</div>
+<script>
+/* Diese Seite ist reiner Empfaenger des OAuth-Redirects. Sie wertet nichts aus,
+   sondern reicht die Parameter an das Hauptfenster weiter – und zwar nur an den
+   eigenen Origin. So bleiben Code/Token in dieser Herkunft.
+
+   Falls die Seite nicht in einem Popup geoeffnet wurde (z. B. weil der Browser
+   Popups blockt und der Anbieter im selben Tab landet), wird auf die App
+   zurueckgeleitet und die Parameter werden ueber sessionStorage uebergeben. */
+(function () {
+  "use strict";
+  function parse(str) {
+    var out = {};
+    String(str || "").replace(/^[?#]/, "").split("&").forEach(function (pair) {
+      if (!pair) return;
+      var i = pair.indexOf("=");
+      var k = decodeURIComponent(i < 0 ? pair : pair.slice(0, i)).replace(/\+/g, " ");
+      var v = i < 0 ? "" : decodeURIComponent(pair.slice(i + 1).replace(/\+/g, " "));
+      out[k] = v;
+    });
+    return out;
+  }
+
+  var params = parse(location.search);
+  var hash = parse(location.hash);
+  Object.keys(hash).forEach(function (k) { if (params[k] === undefined) params[k] = hash[k]; });
+
+  // Der Code darf nicht in der Browser-History stehen bleiben.
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+
+  var payload = { type: "nb-oauth-callback", params: params };
+
+  if (window.opener && window.opener !== window) {
+    try {
+      window.opener.postMessage(payload, location.origin);
+      setTimeout(function () { window.close(); }, 150);
+      return;
+    } catch (e) { /* faellt unten auf den Redirect-Weg zurueck */ }
+  }
+
+  // Fallback ohne Popup: Parameter zwischenlagern und zur App zurueck.
+  try { sessionStorage.setItem("nb2:oauth-callback", JSON.stringify(payload)); } catch (e) {}
+  if (params.error) {
+    document.getElementById("head").textContent = "Anmeldung fehlgeschlagen";
+    document.getElementById("head").className = "err";
+    document.getElementById("msg").textContent = params.error_description || params.error;
+  }
+  setTimeout(function () { location.replace("./index.html"); }, params.error ? 2500 : 300);
+})();
+</script>
+</body>
+</html>
