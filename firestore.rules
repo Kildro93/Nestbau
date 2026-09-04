@@ -1,0 +1,271 @@
+rules_version = '2';
+
+// Nestbau v2.0 - Firestore Security Rules
+// Grundprinzip: alles ist haushalts-scoped, Zugriff nur mit verifizierter Email.
+// Gesundheitsdaten (Allergien, Gewicht, Alter) liegen unter users/{uid}/private/**
+// und sind fuer niemanden ausser dem Besitzer lesbar - auch nicht fuer Haushalts-Admins.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+
+    // Email-Verifikation ist Pflicht fuer alle Haushalts-Daten.
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Schneller Pfad: Rolle steckt als Custom Claim im Token (gesetzt von setHouseholdClaims()).
+    // Faellt auf get() zurueck, solange das Token noch alt ist (max. 1h nach Beitritt).
+    function claimRole(hid) {
+      return request.auth.token.get('hh', {}).get(hid, null);
+    }
+    function docRole(hid) {
+      return exists(/databases/$(database)/documents/households/$(hid))
+        ? get(/databases/$(database)/documents/households/$(hid)).data.roles.get(uid(), null)
+        : null;
+    }
+    function role(hid) {
+      return claimRole(hid) != null ? claimRole(hid) : docRole(hid);
+    }
+    function isMember(hid) { return isVerified() && role(hid) != null; }
+    function isAdmin(hid)  { return isVerified() && role(hid) == 'admin'; }
+
+    function incoming() { return request.resource.data; }
+    function changed(fields) {
+      return incoming().diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // Bilder gehoeren in Cloud Storage, nicht als Base64 nach Firestore
+    // (Dokumentlimit 1 MiB, und Base64 blaeht jede Query auf).
+    function noInlinePhoto() {
+      return !('photo' in incoming())
+        && (!('photoPath' in incoming())
+            || (incoming().photoPath is string && incoming().photoPath.size() < 300));
+    }
+    function shortText(v, max) { return v is string && v.size() <= max; }
+    function hasName() {
+      return shortText(incoming().get('name', ''), 120) && incoming().get('name', '') != '';
+    }
+    function isDayKey(s) { return s is string && s.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}'); }
+
+    // ---------- Users ----------
+    // Basisprofil: eigener Vollzugriff. Haushaltsmitglieder duerfen nur lesen
+    // (Anzeigename/Farbe/Avatar fuer die UI) - Gesundheitsdaten liegen nicht hier.
+    match /users/{userId} {
+      allow read: if isSignedIn() && (
+        userId == uid() ||
+        request.auth.token.get('hh', {}).keys().hasAny(resource.data.get('householdIds', ['-']))
+      );
+      allow create: if isSignedIn() && userId == uid()
+        && incoming().keys().hasOnly(['email', 'displayName', 'color', 'photoPath', 'createdAt',
+                                      'lastLoginAt', 'emailVerified', 'status', 'householdIds',
+                                      'defaultHouseholdId', 'locale', 'schemaVersion'])
+        && incoming().email == request.auth.token.email
+        // Mitgliedschaften vergibt nur der Server - sonst koennte sich ein Konto
+        // beim Anlegen selbst in eine fremde Haushaltsliste schreiben.
+        && incoming().get('householdIds', []).size() == 0;
+      // householdIds und Rollen pflegen ausschliesslich Cloud Functions.
+      allow update: if isSignedIn() && userId == uid()
+        && changed(['displayName', 'color', 'photoPath', 'lastLoginAt', 'emailVerified',
+                    'locale', 'defaultHouseholdId'])
+        && noInlinePhoto();
+      allow delete: if false; // laeuft ueber deleteAccount() / onUserDeleted
+
+      // Gesundheits- und Einstellungsdaten - strikt privat.
+      match /private/{docId} {
+        allow read, write: if isSignedIn() && userId == uid();
+      }
+
+      // Kalender-Verknuepfungen: nur Metadaten, niemals Tokens (siehe /secureTokens).
+      match /integrations/{provider} {
+        allow read: if isSignedIn() && userId == uid();
+        allow update: if isSignedIn() && userId == uid() && changed(['syncEnabled', 'calendarId']);
+        allow create, delete: if false; // ueber connectCalendar()/disconnectCalendar()
+      }
+
+      // Hinweise (z. B. Allergie-Warnung zum Menueplan) - nur der Empfaenger sieht sie.
+      match /notifications/{notifId} {
+        allow read: if isSignedIn() && userId == uid();
+        allow update: if isSignedIn() && userId == uid() && changed(['read', 'readAt']);
+        allow create: if false; // nur Cloud Functions
+        allow delete: if isSignedIn() && userId == uid();
+      }
+    }
+
+    // OAuth-Tokens: fuer Clients komplett gesperrt, verschluesselt, nur Admin SDK.
+    match /secureTokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // Audit-Log der Migrationslaeufe
+    match /migrationRuns/{runId} {
+      allow read: if isSignedIn() && resource.data.uid == uid();
+      allow write: if false;
+    }
+
+    // ---------- Households ----------
+    match /households/{hid} {
+      allow read: if isMember(hid);
+      // Erstellen bevorzugt ueber createHousehold(); der direkte Weg ist eng gefasst.
+      allow create: if isVerified()
+        && incoming().createdBy == uid()
+        && incoming().memberUids == [uid()]
+        && incoming().roles.keys() == [uid()]
+        && incoming().roles[uid()] == 'admin'
+        && hasName();
+      // Mitgliederlisten aendert nur der Server (invite/accept/remove).
+      allow update: if isAdmin(hid)
+        && changed(['name', 'description', 'photoPath', 'settings', 'updatedAt'])
+        && noInlinePhoto();
+      allow delete: if isAdmin(hid) && resource.data.memberUids.size() == 1;
+
+      // Mitglieder-Spiegel fuer die UI (Name, Farbe, Rolle, opt-in Allergene)
+      match /members/{memberId} {
+        allow read: if isMember(hid);
+        allow update: if isMember(hid) && memberId == uid()
+          && changed(['displayName', 'color', 'photoPath', 'updatedAt']);
+        allow create, delete: if false; // nur Cloud Functions
+      }
+
+      // Einladungen: Admin sieht die eigenen, geschrieben wird nur serverseitig.
+      match /invites/{inviteId} {
+        allow read: if isAdmin(hid);
+        allow write: if false; // inviteToHousehold() / acceptInvite() / revokeInvite()
+      }
+
+      // ----- Aufgaben und Einkaeufe -----
+      match /lists/{listId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid) && hasName()
+          && incoming().kind in ['todo', 'shopping']
+          && incoming().keys().hasOnly(['name', 'kind', 'order', 'system', 'createdAt',
+                                        'updatedAt', 'createdBy']);
+        allow delete: if isMember(hid) && resource.data.get('system', false) == false;
+
+        match /items/{itemId} {
+          allow read: if isMember(hid);
+          allow create, update: if isMember(hid)
+            && shortText(incoming().title, 300) && incoming().title != ''
+            && incoming().done is bool
+            && incoming().get('assignee', 'both') is string;
+          allow delete: if isMember(hid);
+        }
+      }
+
+      // ----- Kalender (App-eigene Termine) -----
+      match /events/{eventId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid)
+          && shortText(incoming().title, 300) && incoming().title != ''
+          && isDayKey(incoming().date);
+        allow delete: if isMember(hid);
+      }
+
+      // ----- Gespiegelte externe Termine (Google/Outlook) -----
+      match /calendarEvents/{eventId} {
+        allow read: if isMember(hid);
+        allow write: if false; // schreibt nur der Sync-Job
+      }
+
+      // ----- Finanzen -----
+      match /subscriptions/{subId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid) && hasName()
+          && incoming().amount is number && incoming().amount >= 0 && incoming().amount < 1000000
+          && incoming().frequency in ['monthly', 'quarterly', 'halfyearly', 'yearly'];
+        allow delete: if isMember(hid);
+      }
+
+      // ----- Kochbuch -----
+      match /ingredientCategories/{catId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid) && hasName() && noInlinePhoto();
+        allow delete: if isMember(hid);
+      }
+      match /ingredientGroups/{groupId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid) && hasName();
+        allow delete: if isMember(hid);
+      }
+      match /dishCategories/{catId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid) && hasName();
+        allow delete: if isMember(hid);
+      }
+      match /ingredients/{ingId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid) && hasName() && noInlinePhoto()
+          && incoming().get('categoryIds', []) is list
+          && incoming().get('allergyIds', []) is list
+          && incoming().get('kcal', 0) is number;
+        allow delete: if isMember(hid);
+      }
+      match /recipes/{recipeId} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid) && noInlinePhoto()
+          && shortText(incoming().title, 200) && incoming().title != ''
+          && incoming().get('categories', []) is list
+          && incoming().get('ingredients', []) is list
+          && incoming().get('ingredients', []).size() <= 100
+          && incoming().get('steps', []).size() <= 200
+          && incoming().get('portions', 1) is number
+          && incoming().get('portions', 1) > 0;
+        allow delete: if isMember(hid);
+      }
+      // Menueplan: ein Dokument pro Tag, Dokument-ID = YYYY-MM-DD
+      match /menuPlan/{dayKey} {
+        allow read: if isMember(hid);
+        allow create, update: if isMember(hid)
+          && isDayKey(dayKey)
+          && incoming().get('date', dayKey) == dayKey;
+        allow delete: if isMember(hid);
+      }
+
+      // ---------- recipeImports ----------
+      // Der Posteingang fuer geclippte Rezepte. Geschrieben wird ausschliesslich
+      // serverseitig (HTTP-Endpunkt + Trigger + commit/delete-Callables). Der
+      // Client liest nur – wuerde er `parsed` selbst schreiben duerfen, koennte
+      // er die Allergie-Warnungen und Naehrwerte manipulieren, die genau dort
+      // vom Server hinterlegt wurden.
+      match /recipeImports/{importId} {
+        allow get:  if isMember(hid);
+        allow list: if isMember(hid) && request.query.limit <= 50;
+        allow write: if false;
+      }
+
+      // ---------- clipperTokens (Household-scoped) ----------
+      // Fuer die Allergie-Warnung bei Imports.
+      match /clipperTokens/{tokenId} {
+        allow read, write: if false;
+      }
+
+      // Kein Blanko-Zugriff auf spaeter ergaenzte Unterpfade.
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // Collection-Group: Eingeladene finden ihre eigene Einladung ueber die Email.
+    match /{path=**}/invites/{inviteId} {
+      allow read: if isSignedIn()
+        && resource.data.email == request.auth.token.email.lower()
+        && resource.data.status == 'pending';
+    }
+
+    // ---------- clipperTokens (Top-Level) ----------
+    // Enthaelt die SHA-256-Hashes der Geraete-Tokens. Kein Client-Zugriff:
+    // Anlegen, Auflisten und Trennen laufen ueber Callables, damit das
+    // Klartext-Token die Function nie verlaesst ausser einmal beim Erzeugen.
+    match /clipperTokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // Alles andere: zu.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nestbau – Rezept-Import (Vorschau mit Testdaten)</title>
+<link rel="stylesheet" href="recipe-import.css">
+<style>
+  body { margin: 0; background: #eef2f1; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 18px 16px 60px; }
+  .bar { background: #1c7d70; color: #fff; padding: 13px 16px; display: flex; align-items: center; gap: 9px; }
+  .bar b { font-weight: 600; }
+  .bar small { opacity: .8; margin-left: auto; font-size: 12px; }
+  h1 { font-size: 17px; margin: 18px 0 12px; color: #1f2a28; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <b>Nestbau</b> · Kochbuch › Importe
+    <small>Vorschau mit Testdaten – ohne Firebase</small>
+  </div>
+
+  <div class="wrap">
+    <h1>Import-Posteingang</h1>
+    <div id="app"></div>
+  </div>
+
+  <script src="recipe-import.js"></script>
+  <script src="demo-data.js"></script>
+</body>
+</html>

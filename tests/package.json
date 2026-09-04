@@ -1,0 +1,14 @@
+{
+  "name": "nestbau-rules-tests",
+  "version": "2.0.0",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test rules.test.js",
+    "test:emulated": "firebase emulators:exec --only firestore \"node --test rules.test.js\""
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.2"
+  }
+}

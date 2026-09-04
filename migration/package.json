@@ -1,0 +1,15 @@
+{
+  "name": "nestbau-migration",
+  "version": "2.0.0",
+  "description": "Einmal-Migration der lokalen Nestbau-Daten nach Firebase",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dry": "node migrate.js --dry-run",
+    "migrate": "node migrate.js",
+    "partner": "node reassign-partner.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

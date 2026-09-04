@@ -1,0 +1,385 @@
+{
+  "$schema": "https://nestbau.app/schema/firestore-schema.v2.json",
+  "version": "2.0.0",
+  "generatedFor": "Nestbau v2.0 (Migration von localStorage 'nestbau-state-v1')",
+  "conventions": {
+    "region": "europe-west1",
+    "timestamps": "Firestore Timestamp, Felder createdAt / updatedAt auf jedem Dokument",
+    "documentIds": "IDs aus der lokalen App werden 1:1 uebernommen (base36-Strings), damit alle Querverweise (recipe.ingredients[].ingredientId, menuPlan-Eintraege, item.linkedEventId) ohne Umschreiben gueltig bleiben",
+    "images": "niemals Base64 in Firestore. Feld photoPath enthaelt den Storage-Pfad, z. B. households/{hid}/recipes/{recipeId}/main.jpg",
+    "assignee": "'both' oder die uid eines Mitglieds. Die alten Werte 'a' / 'b' werden bei der Migration ersetzt",
+    "denormalisierung": "titleLower / nameLower fuer Sortierung und Praefixsuche ohne zusaetzlichen Dienst"
+  },
+
+  "collections": {
+    "users/{uid}": {
+      "purpose": "Kontobasis. Von Haushaltsmitgliedern lesbar (Anzeigename, Farbe, Avatar). Enthaelt bewusst KEINE Gesundheitsdaten.",
+      "writtenBy": "client (eigene Felder) + Cloud Functions (householdIds, status)",
+      "fields": {
+        "email": { "type": "string", "required": true, "note": "muss request.auth.token.email entsprechen" },
+        "displayName": { "type": "string", "required": true, "max": 60 },
+        "color": { "type": "string", "enum": ["flame", "teal", "amber", "maroon"], "default": "flame" },
+        "photoPath": { "type": "string|null", "note": "users/{uid}/avatar/..." },
+        "emailVerified": { "type": "boolean", "default": false },
+        "status": { "type": "string", "enum": ["active", "disabled", "deleted"], "default": "active" },
+        "householdIds": { "type": "array<string>", "note": "nur von Cloud Functions gepflegt" },
+        "defaultHouseholdId": { "type": "string|null" },
+        "locale": { "type": "string", "default": "de-CH" },
+        "schemaVersion": { "type": "number", "default": 2 },
+        "createdAt": { "type": "timestamp", "required": true },
+        "lastLoginAt": { "type": "timestamp" }
+      }
+    },
+
+    "users/{uid}/private/health": {
+      "purpose": "Gesundheitsprofil. Nur der Besitzer liest und schreibt - Rules erlauben keinem anderen Konto Zugriff, auch Admins nicht.",
+      "writtenBy": "client (Besitzer)",
+      "fields": {
+        "birthYear": { "type": "number|null", "note": "statt Alter, damit der Wert nicht veraltet" },
+        "heightCm": { "type": "number|null", "min": 50, "max": 260 },
+        "weightKg": { "type": "number|null", "min": 20, "max": 400 },
+        "fitnessLevel": { "type": "string", "enum": ["low", "medium", "high", "athlete"], "default": "medium" },
+        "allergyIds": {
+          "type": "array<string>",
+          "enum": ["gluten", "laktose", "eier", "erdnuesse", "nuesse", "soja", "fisch", "krebstiere", "sellerie", "senf"],
+          "note": "IDs identisch zur ALLERGENS-Liste in index.html"
+        },
+        "dietTags": { "type": "array<string>", "example": ["vegetarisch", "low-carb"] },
+        "shareAllergiesWithHousehold": {
+          "type": "boolean",
+          "default": false,
+          "note": "opt-in. Nur wenn true spiegelt syncAllergyMirror die allergyIds (und nichts sonst) nach households/{hid}/members/{uid}.sharedAllergyIds"
+        },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+
+    "users/{uid}/private/settings": {
+      "purpose": "UI-Praeferenzen, geraeteuebergreifend.",
+      "fields": {
+        "activeListId": { "type": "string", "default": "l-aufgaben" },
+        "calendarView": { "type": "string", "enum": ["week", "month"], "default": "week" },
+        "menuView": { "type": "string", "enum": ["week", "month"], "default": "week" },
+        "theme": { "type": "string", "enum": ["system", "light", "dark"], "default": "system" }
+      }
+    },
+
+    "users/{uid}/integrations/{provider}": {
+      "purpose": "Status der Kalenderverbindung. Enthaelt KEINE Tokens.",
+      "docId": "google | outlook",
+      "writtenBy": "Cloud Functions; Client darf nur syncEnabled und calendarId aendern",
+      "fields": {
+        "provider": { "type": "string", "enum": ["google", "outlook"] },
+        "status": { "type": "string", "enum": ["connected", "expired", "revoked", "error"] },
+        "accountEmail": { "type": "string" },
+        "calendarId": { "type": "string", "default": "primary" },
+        "scopes": { "type": "array<string>" },
+        "syncEnabled": { "type": "boolean", "default": true },
+        "syncDirection": { "type": "string", "enum": ["read", "write", "both"], "default": "read" },
+        "lastSyncAt": { "type": "timestamp|null" },
+        "lastError": { "type": "string|null" },
+        "expiresAt": { "type": "timestamp|null", "note": "Ablauf des Access Tokens, nur zur Anzeige" }
+      }
+    },
+
+    "users/{uid}/notifications/{notifId}": {
+      "purpose": "Persoenliche Hinweise, z. B. Allergiewarnung zu einem geplanten Rezept.",
+      "writtenBy": "nur Cloud Functions",
+      "fields": {
+        "type": { "type": "string", "enum": ["allergy", "invite", "system"] },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "data": { "type": "map", "example": { "householdId": "h1", "dayKey": "2026-09-15", "recipeId": "r7" } },
+        "read": { "type": "boolean", "default": false },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+
+    "secureTokens/{uid}_{provider}": {
+      "purpose": "OAuth Refresh/Access Tokens, AES-256-GCM verschluesselt. Rules: allow read, write: if false. Zugriff ausschliesslich ueber das Admin SDK in Cloud Functions.",
+      "fields": {
+        "uid": { "type": "string" },
+        "provider": { "type": "string", "enum": ["google", "outlook"] },
+        "cipherText": { "type": "string", "note": "base64" },
+        "iv": { "type": "string", "note": "base64, 12 Byte" },
+        "authTag": { "type": "string", "note": "base64, 16 Byte" },
+        "keyVersion": { "type": "number", "default": 1 },
+        "expiresAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}": {
+      "purpose": "Der gemeinsame Datenraum. Alle Inhalte haengen als Unterkollektionen daran.",
+      "fields": {
+        "name": { "type": "string", "required": true, "max": 120 },
+        "description": { "type": "string", "max": 500 },
+        "photoPath": { "type": "string|null" },
+        "createdBy": { "type": "string", "note": "uid" },
+        "memberUids": { "type": "array<string>", "note": "fuer array-contains Queries" },
+        "roles": { "type": "map<uid, 'admin'|'member'>", "note": "wird in den Rules und fuer Custom Claims gelesen" },
+        "settings": {
+          "type": "map",
+          "fields": {
+            "currency": { "type": "string", "default": "CHF" },
+            "locale": { "type": "string", "default": "de-CH" },
+            "weekStart": { "type": "number", "default": 1 },
+            "timezone": { "type": "string", "default": "Europe/Zurich" }
+          }
+        },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/members/{uid}": {
+      "purpose": "Anzeigedaten der Mitglieder, damit Listen ohne Join gerendert werden koennen.",
+      "writtenBy": "Cloud Functions; Mitglied darf nur eigene Anzeigefelder aendern",
+      "fields": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "color": { "type": "string", "enum": ["flame", "teal", "amber", "maroon"] },
+        "photoPath": { "type": "string|null" },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+        "legacyKey": { "type": "string|null", "enum": ["a", "b", null], "note": "Herkunft aus state.people, nur fuer die Migration" },
+        "sharedAllergyIds": { "type": "array<string>", "note": "nur bei opt-in; leer wenn shareAllergiesWithHousehold = false" },
+        "joinedAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/invites/{inviteId}": {
+      "purpose": "Einladung per Email. Wird ausschliesslich von Cloud Functions geschrieben.",
+      "fields": {
+        "email": { "type": "string", "note": "immer lowercase, dient dem Collection-Group-Lookup" },
+        "role": { "type": "string", "enum": ["admin", "member"], "default": "member" },
+        "invitedBy": { "type": "string", "note": "uid" },
+        "invitedByName": { "type": "string" },
+        "householdName": { "type": "string" },
+        "tokenHash": { "type": "string", "note": "SHA-256 des Einladungstokens. Das Token selbst steht nur in der Email" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "revoked", "expired"] },
+        "expiresAt": { "type": "timestamp", "note": "7 Tage" },
+        "acceptedBy": { "type": "string|null" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/lists/{listId}": {
+      "purpose": "Aufgaben- und Einkaufslisten. Entspricht state.lists[].",
+      "fields": {
+        "name": { "type": "string", "required": true },
+        "kind": { "type": "string", "enum": ["todo", "shopping"] },
+        "order": { "type": "number", "default": 0 },
+        "system": { "type": "boolean", "note": "true fuer die 5 Standardlisten, verhindert Loeschen" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "defaultDocs": ["l-aufgaben", "l-einkaufen", "l-geschenke", "l-haushalt", "l-arbeit"]
+    },
+
+    "households/{hid}/lists/{listId}/items/{itemId}": {
+      "purpose": "Einzelne Aufgabe bzw. Einkaufsposition. Entspricht state.lists[].items[].",
+      "fields": {
+        "title": { "type": "string", "required": true, "max": 300 },
+        "assignee": { "type": "string", "note": "uid oder 'both'" },
+        "done": { "type": "boolean", "default": false },
+        "doneAt": { "type": "timestamp|null" },
+        "date": { "type": "string|null", "format": "YYYY-MM-DD" },
+        "time": { "type": "string|null", "format": "HH:mm" },
+        "category": { "type": "string|null", "enum": ["privat", "schule", "arbeit", "haushalt", "wichtig", "sonstiges"] },
+        "recur": { "type": "string|null", "enum": ["daily", "weekly", "monthly"] },
+        "reminder": { "type": "string|null" },
+        "linkedEventId": { "type": "string|null", "note": "verweist auf households/{hid}/events/{id}" },
+        "sourceIngredientId": { "type": "string|null", "note": "Herkunft aus der Einkaufsliste-Generierung" },
+        "grams": { "type": "number|null" },
+        "shoppingGroup": {
+          "type": "string|null",
+          "enum": ["obst", "gemuese", "milchprodukte", "fleisch_fisch", "trocken", "gewuerze", "tiefkuehl", "nonfood"]
+        },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/events/{eventId}": {
+      "purpose": "App-eigene Termine. Entspricht state.events[].",
+      "fields": {
+        "title": { "type": "string", "required": true },
+        "date": { "type": "string", "format": "YYYY-MM-DD", "required": true },
+        "allday": { "type": "boolean", "default": false },
+        "start": { "type": "string|null", "format": "HH:mm" },
+        "end": { "type": "string|null", "format": "HH:mm" },
+        "location": { "type": "string" },
+        "desc": { "type": "string" },
+        "category": { "type": "string", "enum": ["privat", "schule", "arbeit", "haushalt", "wichtig", "sonstiges"] },
+        "assignee": { "type": "string", "note": "uid oder 'both' - steuert die Sichtbarkeit in der UI, nicht die Rules" },
+        "reminder": { "type": "string|null" },
+        "recur": { "type": "string|null", "enum": ["daily", "weekly", "monthly"] },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/calendarEvents/{eventId}": {
+      "purpose": "Gespiegelte Termine aus Google/Outlook. Read-only fuer Clients, geschrieben vom Sync-Job (Bot 3).",
+      "docId": "{provider}_{externalId}",
+      "fields": {
+        "provider": { "type": "string", "enum": ["google", "outlook"] },
+        "externalId": { "type": "string" },
+        "ownerUid": { "type": "string", "note": "wessen Verbindung den Termin geliefert hat" },
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "YYYY-MM-DD" },
+        "start": { "type": "string|null" },
+        "end": { "type": "string|null" },
+        "allday": { "type": "boolean" },
+        "location": { "type": "string" },
+        "etag": { "type": "string", "note": "fuer inkrementellen Sync" },
+        "syncedAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/subscriptions/{subId}": {
+      "purpose": "Abos und wiederkehrende Ausgaben. Entspricht state.subscriptions[].",
+      "fields": {
+        "name": { "type": "string", "required": true },
+        "amount": { "type": "number", "required": true, "min": 0 },
+        "currency": { "type": "string", "default": "CHF" },
+        "frequency": { "type": "string", "enum": ["monthly", "quarterly", "halfyearly", "yearly"] },
+        "billingDay": { "type": "number", "min": 1, "max": 31 },
+        "billingMonth": { "type": "number", "min": 0, "max": 11, "note": "0-basiert wie in der App" },
+        "category": { "type": "string", "enum": ["abo", "haushalt", "urlaub", "versicherung", "lebensmittel"] },
+        "assignee": { "type": "string", "note": "uid oder 'both'" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/ingredientCategories/{catId}": {
+      "purpose": "Zutatenkategorien inkl. Kategoriebild. Entspricht state.ingredientCategories[].",
+      "fields": {
+        "name": { "type": "string", "required": true, "note": "in der App hiess das Feld 'label'" },
+        "custom": { "type": "boolean", "default": false },
+        "emoji": { "type": "string" },
+        "shoppingGroup": { "type": "string", "enum": ["obst", "gemuese", "milchprodukte", "fleisch_fisch", "trocken", "gewuerze", "tiefkuehl", "nonfood"] },
+        "imagePaths": { "type": "array<string>", "note": "Storage-Pfade, ersetzt das alte images[]-Array mit Data-URLs" },
+        "order": { "type": "number" }
+      }
+    },
+
+    "households/{hid}/ingredientGroups/{groupId}": {
+      "purpose": "Benutzerdefinierte Filtergruppen ueber mehrere Kategorien. Entspricht state.ingredientGroups[].",
+      "fields": {
+        "name": { "type": "string", "required": true },
+        "categoryIds": { "type": "array<string>" },
+        "order": { "type": "number" }
+      }
+    },
+
+    "households/{hid}/dishCategories/{catId}": {
+      "purpose": "Eigene Rezeptkategorien zusaetzlich zu den fuenf Standardwerten. Entspricht state.customDishCategories[].",
+      "fields": {
+        "name": { "type": "string", "required": true },
+        "tok": { "type": "string", "enum": ["flame", "teal", "amber", "maroon"] },
+        "emoji": { "type": "string", "default": "🏷️" }
+      }
+    },
+
+    "households/{hid}/ingredients/{ingId}": {
+      "purpose": "Zutaten-Datenbank. Entspricht state.ingredients[].",
+      "fields": {
+        "name": { "type": "string", "required": true },
+        "nameLower": { "type": "string", "note": "fuer Sortierung und Praefixsuche" },
+        "categoryIds": { "type": "array<string>" },
+        "baseGrams": { "type": "number", "default": 100, "note": "Bezugsmenge der Naehrwerte" },
+        "kcal": { "type": "number", "default": 0 },
+        "protein": { "type": "number", "default": 0 },
+        "fat": { "type": "number", "default": 0 },
+        "carbs": { "type": "number", "default": 0 },
+        "fiber": { "type": "number", "default": 0 },
+        "iron": { "type": "number", "default": 0 },
+        "minerals": { "type": "string" },
+        "vitamins": { "type": "array<{name,amount,unit}>" },
+        "aminoAcids": { "type": "array<string>" },
+        "allergyIds": { "type": "array<string>" },
+        "description": { "type": "string" },
+        "photoPath": { "type": "string|null" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/recipes/{recipeId}": {
+      "purpose": "Rezepte. Entspricht state.recipes[].",
+      "fields": {
+        "title": { "type": "string", "required": true },
+        "titleLower": { "type": "string" },
+        "desc": { "type": "string" },
+        "categories": { "type": "array<string>", "note": "fruehstueck | mittagabend | snack | dessert | getraenk | eigene IDs" },
+        "time": { "type": "number|null", "note": "Minuten" },
+        "portions": { "type": "number", "default": 2 },
+        "totalWeight": { "type": "number", "default": 0 },
+        "season": { "type": "string|null", "enum": ["fruehling", "sommer", "herbst", "winter", null] },
+        "notes": { "type": "string" },
+        "utensils": { "type": "array<string>" },
+        "prep": { "type": "array<string>", "note": "Vorbereitungsschritte" },
+        "steps": { "type": "array<string>", "note": "Zubereitungsschritte" },
+        "ingredients": {
+          "type": "array<{ingredientId,amount,unit}>",
+          "note": "eingebettet, nicht als Unterkollektion - ein Rezept wird immer komplett gelesen",
+          "max": 100
+        },
+        "favorite": { "type": "boolean", "default": false },
+        "photoPath": { "type": "string|null" },
+        "lastCookedAt": { "type": "timestamp|null", "note": "neu in v2, treibt den Filter 'Lange nicht mehr gekocht'" },
+        "cookedCount": { "type": "number", "default": 0 },
+        "allergyIds": { "type": "array<string>", "note": "aus den Zutaten aggregiert, damit Filter ohne Nachladen funktionieren" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+
+    "households/{hid}/menuPlan/{YYYY-MM-DD}": {
+      "purpose": "Ein Dokument pro Tag. Entspricht state.menuPlan[dateKey]. Dokument-ID ist der Datumsschluessel, damit Wochen- und Monatsansicht als einfache Range-Query laufen.",
+      "fields": {
+        "date": { "type": "string", "format": "YYYY-MM-DD", "note": "redundant zur Doc-ID, noetig fuer orderBy" },
+        "slots": {
+          "type": "map",
+          "keys": ["fruehstueck", "mittagessen", "abendessen", "snacks"],
+          "value": "array<{type:'recipe',id,qty} | {type:'food',ingredientId|freeName,amount,unit}>"
+        },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+
+    "migrationRuns/{runId}": {
+      "purpose": "Protokoll eines Migrationslaufs, damit Doppelimporte erkennbar sind.",
+      "fields": {
+        "uid": { "type": "string" },
+        "householdId": { "type": "string" },
+        "sourceFile": { "type": "string" },
+        "sourceHash": { "type": "string", "note": "SHA-256 der Backup-Datei, verhindert versehentliche Doppelimporte" },
+        "counts": { "type": "map<string, number>" },
+        "photosUploaded": { "type": "number" },
+        "warnings": { "type": "array<string>" },
+        "dryRun": { "type": "boolean" },
+        "startedAt": { "type": "timestamp" },
+        "finishedAt": { "type": "timestamp" }
+      }
+    }
+  },
+
+  "legacyMapping": {
+    "note": "Quelle ist localStorage['nestbau-state-v1'] bzw. eine 'nestbau-sicherung-*.json'",
+    "state.people.a / .b": "households/{hid}/members/{uid} (legacyKey a|b) + users/{uid}.displayName/color",
+    "state.lists[]": "households/{hid}/lists/{listId}",
+    "state.lists[].items[]": "households/{hid}/lists/{listId}/items/{itemId}",
+    "state.activeListId": "users/{uid}/private/settings.activeListId",
+    "state.events[]": "households/{hid}/events/{eventId}",
+    "state.subscriptions[]": "households/{hid}/subscriptions/{subId}",
+    "state.ingredients[]": "households/{hid}/ingredients/{ingId} (photo -> Storage, photoPath)",
+    "state.ingredientCategories[]": "households/{hid}/ingredientCategories/{catId} (label -> name, images[] -> imagePaths[])",
+    "state.ingredientGroups[]": "households/{hid}/ingredientGroups/{groupId}",
+    "state.customDishCategories[]": "households/{hid}/dishCategories/{catId}",
+    "state.recipes[]": "households/{hid}/recipes/{recipeId} (photo -> Storage, photoPath)",
+    "state.menuPlan[dateKey]": "households/{hid}/menuPlan/{dateKey} mit slots-Map",
+    "localStorage['nestbau-active-profile']": "entfaellt - ersetzt durch Firebase Auth"
+  }
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Nestbau Rezept-Clipper – Einstellungen</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    body { width: auto; max-width: 620px; margin: 0 auto; padding-bottom: 40px; }
+    label { display: block; font-weight: 600; font-size: 13px; margin: 16px 0 5px; }
+    input[type=text] {
+      width: 100%; padding: 9px 11px; font: inherit;
+      border: 1px solid var(--nb-line); border-radius: 9px; background: #fff; color: var(--nb-ink);
+    }
+    input[type=text]:focus { outline: 2px solid var(--nb-primary); outline-offset: 1px; }
+    .hint { font-size: 12px; color: var(--nb-muted); margin-top: 4px; }
+    .row { display: flex; gap: 10px; margin-top: 18px; }
+    .row button { width: auto; flex: 1; }
+    button.danger { background: var(--nb-red); }
+    h2 { font-size: 14px; margin: 26px 0 0; padding-top: 18px; border-top: 1px solid var(--nb-line); }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="logo">N</span>
+    <h1>Rezept-Clipper – Einstellungen</h1>
+  </header>
+
+  <main>
+    <h2 style="border:0;padding:0;margin-top:0">Verbindung</h2>
+    <p class="hint">
+      Der bequeme Weg: in Nestbau die Seite <em>clipper-connect.html</em> oeffnen und dort
+      auf "Diesen Browser verbinden" tippen. Das Feld unten ist nur der manuelle Notweg.
+    </p>
+
+    <label for="token">Geraete-Token</label>
+    <input type="text" id="token" placeholder="nb1_..." autocomplete="off" spellcheck="false">
+    <div class="hint">Wird lokal im Browser gespeichert und nur an deinen eigenen Nestbau-Endpunkt gesendet.</div>
+
+    <label for="label">Geraete-Name</label>
+    <input type="text" id="label" placeholder="Laptop Indra" autocomplete="off">
+
+    <h2>Server</h2>
+
+    <label for="endpoint">Endpunkt der Cloud Function</label>
+    <input type="text" id="endpoint" autocomplete="off" spellcheck="false">
+    <div class="hint">Standard: https://europe-west1-&lt;projekt&gt;.cloudfunctions.net/clipRecipe</div>
+
+    <label for="appUrl">Adresse der Nestbau-App</label>
+    <input type="text" id="appUrl" autocomplete="off" spellcheck="false">
+
+    <div class="row">
+      <button id="saveBtn">Speichern</button>
+      <button class="danger" id="unpairBtn">Verbindung trennen</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>

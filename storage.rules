@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Nestbau v2.0 - Cloud Storage Rules
+// Keine oeffentlichen Bilder: Rezept- und Zutatenfotos sind Haushaltsdaten.
+// Mitgliedschaft wird direkt gegen Firestore geprueft.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+
+    // Mitgliedschaft wird gegen das Mitglieder-Dokument geprueft. Storage-Traffic ist
+    // gering, deshalb hier kein Claim-Schnellpfad wie in den Firestore Rules.
+    function isMember(hid) {
+      return isVerified()
+        && firestore.exists(/databases/(default)/documents/households/$(hid)/members/$(request.auth.uid));
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+    }
+    function underMB(mb) { return request.resource.size < mb * 1024 * 1024; }
+
+    // Profilbild: nur der Besitzer schreibt. Lesen duerfen alle Angemeldeten,
+    // damit Mitglieder-Avatare in geteilten Ansichten laden.
+    match /users/{uid}/avatar/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid && isImage() && underMB(5);
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Haushaltsbilder: Rezepte, Zutaten, Kategorien, Haushalts-Cover
+    match /households/{hid}/{kind}/{docId}/{fileName} {
+      allow read: if isMember(hid);
+      allow write: if isMember(hid)
+        && kind in ['recipes', 'ingredients', 'ingredientCategories', 'cover']
+        && isImage()
+        && underMB(8);
+      allow delete: if isMember(hid);
+    }
+
+    // Importierte Rohfotos fuer Rezept-Importe
+    // Nur der Server schreibt (Admin SDK umgeht Rules)
+    match /households/{hid}/recipeImports/{importId}/{fileName} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+      allow delete: if isMember(hid);
+    }
+
+    // Rezept-Fotos (Import + manuelles Upload)
+    // Schreiben erlaubt, damit der Nutzer im Editor ein eigenes Foto ersetzen kann
+    match /households/{hid}/recipes/{recipeId}/{fileName} {
+      allow read:   if isSignedIn();
+      allow write:  if isMember(hid) && isImage() && underMB(8);
+      allow delete: if isMember(hid);
+    }
+
+    // Migrations-Uploads (Admin SDK schreibt hier, Client nie)
+    match /migrations/{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

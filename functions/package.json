@@ -1,0 +1,26 @@
+{
+  "name": "nestbau-functions",
+  "version": "2.0.0",
+  "description": "Cloud Functions fuer Nestbau v2.0",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "serve": "firebase emulators:start --only functions,firestore,auth,storage",
+    "shell": "firebase functions:shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "node --check index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
+    "@sendgrid/mail": "^8.1.4",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.1"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.4.0"
+  },
+  "private": true
+}

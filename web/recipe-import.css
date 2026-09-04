@@ -1,0 +1,434 @@
+/* Nestbau v2.0 – Rezept-Import UI.
+   Alle Klassen mit Praefix nbi-, damit nichts mit den bestehenden App-Styles
+   kollidiert. Farben aus dem Nestbau-Design. */
+
+.nbi-root {
+  --nbi-primary: #1c7d70;
+  --nbi-primary-dark: #15645a;
+  --nbi-green: #4a6741;
+  --nbi-ochre: #8a5f22;
+  --nbi-red: #b5342a;
+  --nbi-ink: #1f2a28;
+  --nbi-muted: #66756f;
+  --nbi-line: #dfe6e3;
+  --nbi-bg: #f6f8f7;
+  color: var(--nbi-ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------------------------------------------------------- URL-Leiste */
+
+.nbi-urlbar { display: flex; gap: 8px; margin-bottom: 10px; }
+
+.nbi-url {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid var(--nbi-line);
+  border-radius: 11px;
+  background: #fff;
+  color: inherit;
+}
+
+.nbi-url:focus { outline: 2px solid var(--nbi-primary); outline-offset: 1px; }
+
+/* ------------------------------------------------------------- Buttons */
+
+.nbi-btn {
+  border: 0;
+  border-radius: 11px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--nbi-primary);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.nbi-btn:hover:not(:disabled) { background: var(--nbi-primary-dark); }
+.nbi-btn:disabled { opacity: 0.55; cursor: default; }
+
+.nbi-btn.ghost {
+  background: transparent;
+  color: var(--nbi-primary-dark);
+  border: 1px solid var(--nbi-line);
+}
+
+.nbi-btn.ghost:hover:not(:disabled) { background: var(--nbi-bg); }
+.nbi-btn.small { padding: 7px 12px; font-size: 13px; border-radius: 9px; }
+
+.nbi-icon-btn {
+  border: 0;
+  background: transparent;
+  color: var(--nbi-muted);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 3px 7px;
+  border-radius: 7px;
+}
+
+.nbi-icon-btn:hover { background: rgba(181, 52, 42, 0.1); color: var(--nbi-red); }
+.nbi-icon-btn.big { font-size: 26px; }
+
+/* -------------------------------------------------------------- Karten */
+
+.nbi-list { display: grid; gap: 10px; }
+
+.nbi-card {
+  display: flex;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--nbi-line);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.nbi-card.busy { opacity: 0.75; }
+
+.nbi-thumb {
+  width: 84px;
+  height: 84px;
+  flex: 0 0 84px;
+  border-radius: 11px;
+  object-fit: cover;
+  background: var(--nbi-bg);
+}
+
+.nbi-thumb.empty, .nbi-photo.empty {
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+}
+
+.nbi-card-body { flex: 1; min-width: 0; }
+
+.nbi-card-top { display: flex; align-items: flex-start; gap: 8px; }
+
+.nbi-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nbi-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.nbi-status.wait { background: rgba(138, 95, 34, 0.14); color: var(--nbi-ochre); }
+.nbi-status.ok   { background: rgba(28, 125, 112, 0.13); color: var(--nbi-primary-dark); }
+.nbi-status.err  { background: rgba(181, 52, 42, 0.12); color: var(--nbi-red); }
+.nbi-status.done { background: rgba(74, 103, 65, 0.13); color: var(--nbi-green); }
+
+.nbi-card-meta { margin: 3px 0 0; font-size: 12.5px; color: var(--nbi-muted); }
+.nbi-card-allergy { margin: 6px 0 0; font-size: 12.5px; color: var(--nbi-red); font-weight: 600; }
+.nbi-card-error { margin: 6px 0 0; font-size: 12.5px; color: var(--nbi-red); }
+.nbi-card-actions { display: flex; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+
+.nbi-empty {
+  border: 1px dashed var(--nbi-line);
+  border-radius: 14px;
+  padding: 28px 18px;
+  text-align: center;
+  color: var(--nbi-muted);
+}
+
+.nbi-empty p { margin: 0 0 5px; }
+.nbi-hint { font-size: 12.5px; color: var(--nbi-muted); font-style: normal; }
+
+/* ------------------------------------------------------------- Overlay */
+
+.nbi-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 32, 30, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 9000;
+  padding: 0;
+}
+
+.nbi-panel {
+  background: #fff;
+  width: min(720px, 100%);
+  max-height: 94vh;
+  border-radius: 18px 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #1f2a28;
+  --nbi-primary: #1c7d70;
+  --nbi-primary-dark: #15645a;
+  --nbi-green: #4a6741;
+  --nbi-ochre: #8a5f22;
+  --nbi-red: #b5342a;
+  --nbi-muted: #66756f;
+  --nbi-line: #dfe6e3;
+  --nbi-bg: #f6f8f7;
+}
+
+@media (min-width: 700px) {
+  .nbi-overlay { align-items: center; padding: 20px; }
+  .nbi-panel { border-radius: 18px; }
+}
+
+.nbi-panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--nbi-line);
+}
+
+.nbi-panel-head h2 { margin: 0; font-size: 17px; }
+.nbi-source { margin: 2px 0 0; font-size: 12.5px; color: var(--nbi-muted); }
+
+.nbi-panel-body { overflow-y: auto; padding: 14px 16px; flex: 1; }
+.nbi-panel-body h3 { margin: 20px 0 7px; font-size: 14px; }
+
+.nbi-panel-foot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 11px 16px;
+  border-top: 1px solid var(--nbi-line);
+  background: var(--nbi-bg);
+  border-radius: 0 0 18px 18px;
+}
+
+.nbi-spacer { flex: 1; }
+
+/* -------------------------------------------------------------- Felder */
+
+.nbi-top { display: flex; gap: 14px; align-items: flex-start; }
+
+.nbi-photo {
+  width: 148px;
+  height: 148px;
+  flex: 0 0 148px;
+  border-radius: 13px;
+  object-fit: cover;
+  background: var(--nbi-bg);
+  font-size: 42px;
+}
+
+.nbi-top-fields { flex: 1; min-width: 0; }
+
+@media (max-width: 560px) {
+  .nbi-top { flex-direction: column; }
+  .nbi-photo { width: 100%; flex: none; height: 170px; }
+}
+
+.nbi-field { display: block; margin-bottom: 10px; }
+.nbi-field > span { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 3px; }
+
+.nbi-field input, .nbi-field textarea {
+  width: 100%;
+  padding: 9px 11px;
+  font: inherit;
+  border: 1px solid var(--nbi-line);
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  resize: vertical;
+}
+
+.nbi-field input:focus, .nbi-field textarea:focus {
+  outline: 2px solid var(--nbi-primary);
+  outline-offset: 1px;
+}
+
+.nbi-triple { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.nbi-triple .nbi-field { margin-bottom: 0; }
+
+/* --------------------------------------------------------------- Chips */
+
+.nbi-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+
+.nbi-chip {
+  border: 1px solid var(--nbi-line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.nbi-chip.active {
+  background: rgba(28, 125, 112, 0.13);
+  border-color: var(--nbi-primary);
+  color: var(--nbi-primary-dark);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------- Zutaten */
+
+.nbi-ings { display: grid; gap: 6px; margin-bottom: 9px; }
+
+.nbi-ing-row {
+  display: grid;
+  grid-template-columns: 62px 92px minmax(90px, 1fr) minmax(120px, 1.3fr) 30px;
+  gap: 6px;
+  align-items: center;
+  background: var(--nbi-bg);
+  border-radius: 10px;
+  padding: 6px 7px;
+}
+
+.nbi-ing-row input, .nbi-ing-row select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 13.5px;
+  border: 1px solid var(--nbi-line);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+}
+
+.nbi-ing-note, .nbi-ing-hint {
+  grid-column: 1 / -1;
+  font-size: 11.5px;
+  color: var(--nbi-muted);
+  padding-left: 3px;
+}
+
+.nbi-ing-hint { color: var(--nbi-ochre); }
+
+.nbi-link.is-linked { border-color: var(--nbi-primary); background: rgba(28, 125, 112, 0.07); }
+.nbi-link.is-new { border-color: var(--nbi-ochre); background: rgba(138, 95, 34, 0.09); }
+.nbi-link.is-open { border-color: var(--nbi-red); background: rgba(181, 52, 42, 0.06); }
+
+@media (max-width: 560px) {
+  .nbi-ing-row { grid-template-columns: 58px 78px 1fr 26px; }
+  .nbi-link { grid-column: 1 / -1; }
+}
+
+/* ---------------------------------------------------------- Naehrwerte */
+
+.nbi-nutrition {
+  margin-top: 14px;
+  border: 1px solid var(--nbi-line);
+  border-radius: 13px;
+  padding: 11px 13px;
+  background: var(--nbi-bg);
+}
+
+.nbi-nut-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
+  margin-bottom: 9px;
+}
+
+.nbi-coverage { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.nbi-coverage.good { background: rgba(28, 125, 112, 0.14); color: var(--nbi-primary-dark); }
+.nbi-coverage.mid { background: rgba(138, 95, 34, 0.15); color: var(--nbi-ochre); }
+.nbi-coverage.low { background: rgba(181, 52, 42, 0.12); color: var(--nbi-red); }
+
+.nbi-nut-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; text-align: center; }
+.nbi-nut-grid > div { background: #fff; border-radius: 9px; padding: 8px 4px; }
+.nbi-nut-grid b { display: block; font-size: 15px; }
+.nbi-nut-grid span { font-size: 11px; color: var(--nbi-muted); }
+
+.nbi-nut-serving { margin-top: 9px; font-size: 12.5px; color: var(--nbi-muted); }
+.nbi-nut-warn { margin-top: 6px; font-size: 12.5px; color: var(--nbi-ochre); }
+
+/* ------------------------------------------------------------ Warnungen */
+
+.nbi-allergy {
+  border: 1px solid rgba(181, 52, 42, 0.35);
+  background: rgba(181, 52, 42, 0.07);
+  border-radius: 13px;
+  padding: 11px 13px;
+  margin-bottom: 13px;
+}
+
+.nbi-allergy-head { font-weight: 700; color: var(--nbi-red); margin-bottom: 5px; }
+.nbi-allergy ul { margin: 0; padding-left: 19px; }
+.nbi-allergy li { margin-bottom: 5px; font-size: 13.5px; }
+.nbi-allergy-src { font-size: 12px; color: var(--nbi-muted); }
+.nbi-allergy-foot { margin: 7px 0 0; font-size: 11.5px; color: var(--nbi-muted); }
+
+.nbi-cert {
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.nbi-cert.confirmed { background: rgba(181, 52, 42, 0.16); color: var(--nbi-red); }
+.nbi-cert.suspected { background: rgba(138, 95, 34, 0.16); color: var(--nbi-ochre); }
+
+.nbi-warnings {
+  border: 1px solid var(--nbi-line);
+  background: var(--nbi-bg);
+  border-radius: 13px;
+  padding: 10px 13px;
+  margin-bottom: 13px;
+  font-size: 13px;
+}
+
+.nbi-warnings ul { margin: 5px 0 0; padding-left: 19px; }
+
+/* ----------------------------------------------------------------- Tags */
+
+.nbi-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.nbi-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(28, 125, 112, 0.11);
+  color: var(--nbi-primary-dark);
+  border-radius: 999px;
+  padding: 4px 6px 4px 11px;
+  font-size: 13px;
+}
+
+.nbi-tag button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 3px;
+}
+
+.nbi-tag-input {
+  border: 1px dashed var(--nbi-line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 13px;
+  min-width: 150px;
+  background: #fff;
+  color: inherit;
+}
+
+/* -------------------------------------------------------------- Meldung */
+
+.nbi-msg { display: none; margin-top: 9px; padding: 9px 12px; border-radius: 10px; font-size: 13.5px; }
+.nbi-msg.show { display: block; }
+.nbi-msg.ok { background: rgba(74, 103, 65, 0.12); color: var(--nbi-green); }
+.nbi-msg.err { background: rgba(181, 52, 42, 0.11); color: var(--nbi-red); }

@@ -1,0 +1,12 @@
+node_modules/
+.firebaserc
+*.local
+.env
+.env.*
+serviceAccountKey.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+migration/backups/
+migration/reports/
+src/firebase-config.local.js
