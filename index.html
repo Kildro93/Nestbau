@@ -3007,7 +3007,10 @@
   // Offline-Support: nur aktiv, wenn die App über einen Server (http://localhost) laeuft.
   // Beim Direktoeffnen der Datei (file://) erlaubt der Browser keine Service Worker – das ist ok,
   // die App funktioniert dann trotzdem, nur ohne Installations-Prompt.
-  if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+  // In der Android-App (Capacitor) liegen die Dateien schon lokal im APK: der
+  // Service Worker haette dort nichts zu cachen und wuerde die Auslieferung nur
+  // ueber eine zweite Ebene schicken.
+  if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0 && !window.Capacitor) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").catch(function () {});
     });

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Markenfarbe hinter dem adaptiven Launcher-Icon (siehe manifest.json theme_color). -->
+    <color name="ic_launcher_background">#1c7d70</color>
+</resources>

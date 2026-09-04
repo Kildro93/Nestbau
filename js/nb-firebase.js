@@ -84,6 +84,15 @@
       auth = fb.auth();
       db = fb.firestore();
       storage = fb.storage();
+
+      // Emulator-Modus (für lokales Testing)
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        log.info("Verwende Firebase Emulatoren...");
+        db.useEmulator('localhost', 8080);
+        auth.useEmulator('http://localhost:9099', { disableWarnings: true });
+        storage.useEmulator('localhost', 5000);
+      }
+
       // Offline-Cache: Kochbuch bleibt ohne Netz lesbar; scheitert bei mehreren
       // gleichzeitig offenen Tabs – das ist unkritisch, dann eben ohne Cache.
       return db.enablePersistence({ synchronizeTabs: true }).catch(function (e) {

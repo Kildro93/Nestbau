@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!--
+        Berechtigungen bewusst minimal. Jede Zeile hier muss im Play-Console-
+        Fragebogen begruendet werden, und jede zusaetzliche Zeile kostet
+        Installationen. Begruendung siehe BUILD-GUIDE.md > Berechtigungen.
+    -->
+
+    <!-- Firestore-Sync, Kalender-Sync (Google/Microsoft) und OAuth-Login. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Fotos zu Rezepten aufnehmen (@capacitor/camera). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!--
+        Bestehendes Foto zu einem Rezept waehlen. Ab Android 13 (API 33) ueber den
+        granularen Medien-Zugriff, davor ueber den alten Lesezugriff - der wird
+        deshalb ab API 33 ausdrucklich beendet.
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!--
+        Ohne Kamera laesst sich die App weiterhin vollstaendig nutzen (Fotos sind
+        optional). Als required wuerde Play das Geraet aussortieren.
+    -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!--
+        Bewusst NICHT angefordert:
+        READ_CALENDAR / WRITE_CALENDAR - der Kalender-Sync laeuft ueber die Google-
+        und Microsoft-Graph-APIs mit OAuth, nicht ueber den Geraetekalender.
+        READ_CONTACTS - Haushaltsmitglieder werden in der App angelegt, das
+        Adressbuch wird nie gelesen.
+    -->
+</manifest>

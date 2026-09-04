@@ -1,0 +1,27 @@
+[36m[1mi  emulators:[22m[39m Starting emulators: auth, firestore, storage
+[36m[1mi  emulators:[22m[39m Detected demo project ID "demo-no-project", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+[33m[1m!  auth:[22m[39m Port 9099 is not open on 127.0.0.1, could not start Authentication Emulator.
+[33m[1m!  auth:[22m[39m To select a different host/port, specify that host/port in a firebase.json config file:
+      {
+        // ...
+        "emulators": {
+          "auth": {
+            "host": "[33mHOST[39m",
+            "port": "[33mPORT[39m"
+          }
+        }
+      }
+[33m[1m!  firestore:[22m[39m Port 8080 is not open on 127.0.0.1, could not start Firestore Emulator.
+[33m[1m!  firestore:[22m[39m To select a different host/port, specify that host/port in a firebase.json config file:
+      {
+        // ...
+        "emulators": {
+          "firestore": {
+            "host": "[33mHOST[39m",
+            "port": "[33mPORT[39m"
+          }
+        }
+      }
+[36m[1mi  emulators:[22m[39m Shutting down emulators.
+
+[1m[31mError:[39m[22m Could not start Authentication Emulator, port taken.
