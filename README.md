@@ -1,74 +1,86 @@
-# Nestbau – lokale Version
+# Nestbau – Lokale App mit optionaler Firestore-Integration (v2)
 
-Die App aus dem Claude-Artefakt, lokal lauffähig. Design, Tabs
-(Heute / Aufgaben / Kalender / Finanzen / Kochbuch) und alle Funktionen sind unverändert.
-Ergänzt wurde nur ein Bereich **Daten** in den Einstellungen (Sicherung speichern / laden).
+Die App läuft lokal ohne Cloud, mit optionalen Verbindungen zu Kalenderanbietern (Google, Outlook) und Firebase für gemeinsames Kochbuch + Aufgaben/Events/Finanzen.
 
-## Dateien
+## ⚡ Start
+
+**Am PC:** Doppelklick auf `index.html`. Läuft sofort lokal.
+
+**Mit lokalem Server** (für Handy-Installation oder Cloud-Verbindungen):
+```bash
+python -m http.server 8000
+# Browser: http://localhost:8000
+```
+
+## 📁 Struktur
 
 | Datei | Zweck |
 |---|---|
-| `index.html` | die komplette App (HTML, CSS, JS in einer Datei) |
-| `manifest.json` | macht die App auf dem Handy installierbar |
-| `icon.svg` | App-Icon für den Startbildschirm |
-| `sw.js` | Offline-Support (nur bei Start über einen Server aktiv) |
-| `js/nb-*.js` | Verbindungen: Google Kalender, Outlook, Kochbuch-Cloud |
-| `oauth-callback.html` | Rückmeldeseite der Anmeldung |
-| `firestore.rules`, `storage.rules` | Zugriffsregeln für die Cloud |
-| `docs/INTEGRATIONEN.md` | Einrichtung der Verbindungen, Schritt für Schritt |
+| `index.html` | Komplette App (HTML, CSS, JS in einer) |
+| `js/nb-core.js` | Kern: Error Handling, Retry-Logik, HTTP-Wrapper |
+| `js/nb-oauth.js` | PKCE-Flow für Google & Microsoft |
+| `js/nb-google-calendar.js` | Google Calendar API Integration |
+| `js/nb-outlook-calendar.js` | Outlook/Microsoft Graph Integration |
+| `js/nb-calendar-sync.js` | Kalender-Abgleich (inkrementell, Konflikt-Handling) |
+| `js/nb-firebase.js` | Firestore für Kochbuch + Aufgaben + Events + Finanzen |
+| `js/nb-migrate.js` | Migration vom localStorage zu Firebase |
+| `js/nb-integrations-ui.js` | Karten im Zahnrad-Menü |
+| `js/nb-config.js` | Config-Struktur (leer, Platzhalter) |
+| `js/nb-config.local.js` | **← NICHT IM REPO:** Client-IDs hier eintragen |
+| `oauth-callback.html` | Redirect-URL für OAuth-Flow |
+| `firestore.rules`, `storage.rules` | Firestore & Storage Sicherheitsregeln |
+| `docs/INTEGRATIONEN.md` | Setup-Anleitung (Client-IDs, Firebase-Projekt) |
+| `src/`, `firebase-*.js` | *Älterer Ansatz (ES-Module), kann ignoriert werden* |
 
-## Verbindungen (optional)
+## 🔄 Firestore-Integration (Optional)
 
-Google Kalender, Outlook Kalender und ein gemeinsames Kochbuch über Firebase.
-Alles davon ist freiwillig: ohne Einrichtung läuft die App genau wie bisher,
-lokal und ohne Konto. Die Karten dazu stehen im Zahnrad unter
-**Kalender verbinden** und **Cloud**.
+Ohne Einrichtung: App läuft lokal, alles im `localStorage`.
 
-Wichtig: Diese Verbindungen brauchen einen Server (`http://localhost:…` oder
-eine HTTPS-Adresse). Beim Doppelklick auf `index.html` läuft die Seite als
-`file://` – dafür gibt es bei Google, Microsoft und Firebase keine
-registrierbare Herkunft, die Karten melden dann „Braucht http(s)".
+Mit Firebase:
+1. Aufgaben, Events, Finanzen werden zu Firestore synchronisiert
+2. Kalender werden in beide Richtungen abgeglichen (Google/Outlook ↔ Nestbau)
+3. Kochbuch ist gemeinsam über Beitrittscode teilbar
 
-Einrichtung: [`docs/INTEGRATIONEN.md`](docs/INTEGRATIONEN.md).
+**Setup:** Siehe [`docs/INTEGRATIONEN.md`](docs/INTEGRATIONEN.md)
 
-## Starten
+### Was wird synchronisiert?
 
-**Am PC:** Doppelklick auf `index.html`. Läuft sofort.
+| Bereich | lokal | Firebase | Bemerkung |
+|---|---|---|---|
+| Heute / Aufgaben | ✅ localStorage | ✅ Firestore collections | Wenn Firebase aktiv |
+| Kalender (lokal) | ✅ localStorage | ✅ Firestore | Live-Sync mit Google/Outlook |
+| Finanzen (Abos) | ✅ localStorage | ✅ Firestore | Wenn Firebase aktiv |
+| Kochbuch | ✅ localStorage | ✅ Firestore | Mit Bilderspeicher |
 
-**Am Handy als richtige App** – dafür braucht es einen kleinen lokalen Server, sonst
-erlaubt der Browser das Installieren nicht. In diesem Ordner ein Terminal öffnen und:
+## 💾 Daten sichern & laden
 
-```bash
-python -m http.server 8000
-```
+**Zahnrad** → Abschnitt **Daten**:
+- **Sicherung speichern** – JSON-Datei im Download-Ordner
+- **Sicherung laden** – Alte Datei zurückschreiben
+- **Als Text kopieren/einfügen** – Für Browser ohne Downloads
 
-Dann am Handy (gleiches WLAN) `http://<PC-IP>:8000` öffnen →
-Browsermenü → *Zum Startbildschirm hinzufügen*. Danach läuft sie offline und ohne Browserleiste.
+Lokal: `localStorage["nestbau-state-v1"]`
+Firebase: Alle COLLECTIONS im Haushalt
 
-## Daten sichern und übertragen
+## 🚀 Migration: localStorage → Firebase
 
-Zahnrad oben rechts → Abschnitt **Daten**:
+1. **Benutzer anmelden** (Firebase)
+2. **Haushalt erstellen/beitreten**
+3. **Zahnrad** → **Cloud** → **Hochladen**
+   - Sicherung wird angelegt
+   - Bilder in Storage hochgeladen
+   - Listen, Events, Subscriptions, Kochbuch → Firestore
+   - Live-Sync startet
 
-- **Sicherung speichern** – legt `nestbau-sicherung-JJJJ-MM-TT.json` im Download-Ordner ab.
-- **Sicherung laden** – Datei auswählen, Rückfrage bestätigen, fertig. Die App startet
-  danach neu, damit ältere Sicherungen sauber nachgezogen werden.
-- **Als Text kopieren / einfügen** – zeigt dieselben Daten als Text. Nötig überall dort,
-  wo der Browser keine Downloads erlaubt (z. B. im Claude-Artefakt).
+Nach der Migration: Alle Geräte sync automatisch.
 
-Alles liegt im `localStorage` des Browsers unter `nestbau-state-v1`.
-Ohne eingerichtete Verbindungen braucht die App weder Cloud noch Konto noch Internet.
-
-Die Verbindungen legen ihre Daten getrennt davon unter `nb2:…` ab – Tokens
-wandern deshalb nicht in die Sicherungsdatei und lassen sich nicht versehentlich
-auf ein anderes Gerät übertragen.
-
-**Daten aus dem Claude-Artefakt holen:** Der Browser trennt den Speicher pro Adresse,
-die lokale App startet deshalb leer. Im Artefakt die Konsole (F12) öffnen und
-`copy(localStorage.getItem("nestbau-state-v1"))` ausführen, dann hier unter
-*Als Text kopieren / einfügen* einsetzen und auf **Übernehmen** tippen.
-
-Vor grösseren Änderungen lohnt sich eine Sicherung – Browser-Cache leeren löscht die Daten.
-
-## Änderungen
+## 📝 Lokal bearbeiten
 
 Alles steckt in `index.html`. Bearbeiten, speichern, Seite mit Strg+F5 neu laden.
+
+## ⚙️ Fehlerbehandlung
+
+- **14 normalisierte Error-Codes** (nb-core.js)
+- **Retry mit Backoff + Jitter** (bis 30s Pause)
+- **Honoert `Retry-After`-Header**
+- **Offline-Cache** (Firestore: Tab-übergreifend)
