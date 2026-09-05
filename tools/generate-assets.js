@@ -13,8 +13,8 @@ const sharp = require("sharp");
 
 const ROOT = path.join(__dirname, "..");
 const SVG = path.join(ROOT, "icon.svg");
-const BG = "#1c7d70";          // Deckfarbe des adaptiven Icons
-const SPLASH_BG = "#f4f2ee";
+const BG = "#FF8C42";          // Deckfarbe des adaptiven Icons
+const SPLASH_BG = "#fafaf8";
 
 // Android-Launcher: legacy (voll) und adaptiv (Vordergrund mit Sicherheitsrand).
 const DENSITIES = {
