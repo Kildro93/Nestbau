@@ -8,7 +8,12 @@
     "assets": "node tools/generate-assets.js",
     "sync": "npm run build:web && npx cap sync android",
     "android:debug": "npm run sync && cd android && gradlew.bat assembleDebug",
-    "android:release": "npm run sync && cd android && gradlew.bat bundleRelease"
+    "android:release": "npm run sync && cd android && gradlew.bat bundleRelease",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\"",
+    "test:integration": "node --test \"tests/integration/*.test.mjs\"",
+    "audit:security": "node scripts/security-check.mjs",
+    "audit:perf": "node scripts/perf-audit.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",
@@ -20,6 +25,7 @@
   "devDependencies": {
     "@capacitor/cli": "^7.6.9",
     "puppeteer": "^25.10.0",
-    "sharp": "^0.34.2"
+    "sharp": "^0.34.2",
+    "jsdom": "^25.0.1"
   }
 }
