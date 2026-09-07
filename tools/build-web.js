@@ -27,7 +27,9 @@ const FILES = [
   "oauth-callback.html",
   "firebase-bridge.html"
 ];
-const DIRS = ["js", "src"];
+// assets/ enthaelt die PWA-Icons, auf die manifest.json verweist. Fehlt der
+// Ordner im Build, laufen die Manifest-Icons im verpackten App-Bundle ins Leere.
+const DIRS = ["js", "src", "assets"];
 
 // nb-config.local.js zeigt auf den Firebase-Emulator (localhost) und wuerde die
 // installierte App ins Leere laufen lassen. index.html faengt die fehlende Datei
