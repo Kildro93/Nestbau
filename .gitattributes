@@ -1,0 +1,19 @@
+# Zeilenenden einheitlich LF im Repository, im Arbeitsverzeichnis nativ.
+# Grund: Windows-Editoren hatten CRLF eingestreut, dadurch zeigte git ganze
+# Dateien als geaendert, obwohl sich inhaltlich nichts geaendert hatte.
+* text=auto eol=lf
+
+# Binaerdateien nie anfassen
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.aab binary
+*.apk binary
+*.jks binary
+*.keystore binary
+
+# Windows-Skripte brauchen CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+gradlew.bat text eol=crlf
