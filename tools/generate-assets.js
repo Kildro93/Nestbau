@@ -14,6 +14,10 @@ const sharp = require("sharp");
 const ROOT = path.join(__dirname, "..");
 const SVG = path.join(ROOT, "icon.svg");
 const BG = "#1c7d70";          // Deckfarbe des adaptiven Icons
+// Die Farbe, die die App tatsaechlich rendert. manifest.json nennt seit dem
+// Design-Umbau #fafaf8, wirksam wird das aber erst, wenn der Inline-<style>
+// in index.html nestbau-design.css nicht mehr ueberschreibt.
+// Siehe BUILD-GUIDE.md > Bekannte Stolpersteine.
 const SPLASH_BG = "#f4f2ee";
 
 // Android-Launcher: legacy (voll) und adaptiv (Vordergrund mit Sicherheitsrand).
@@ -49,14 +53,36 @@ async function adaptiveForeground(size, out) {
 }
 
 async function featureGraphic(out) {
-  // Play Store Feature-Graphic: 1024x500, kein Alpha, Logo links, Flaeche in Markenfarbe.
-  const logoSize = 300;
+  // Play Store Feature-Graphic: 1024x500, kein Alpha. Google skaliert und
+  // beschneidet sie je nach Platzierung, deshalb bleibt alles Wichtige gut
+  // innerhalb der Raender und es steht nichts am unteren Bildrand.
+  const logoSize = 260;
   const logo = await sharp(SVG, { density: 512 }).resize(logoSize, logoSize).png().toBuffer();
+
+  // Text als SVG, damit er in voller Aufloesung gerastert wird statt als
+  // hochskaliertes Bitmap. Die Schriftfamilien sind eine Kette mit Rueckfall,
+  // falls die erste auf dem bauenden Rechner fehlt.
+  const FONT = "Segoe UI, Roboto, DejaVu Sans, sans-serif";
+  const text = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500">
+       <text x="360" y="228" font-family="${FONT}" font-size="76" font-weight="700" fill="#1f2420">Nestbau</text>
+       <text x="360" y="288" font-family="${FONT}" font-size="34" font-weight="500" fill="#1c7d70">Haushalt Manager</text>
+       <text x="362" y="348" font-family="${FONT}" font-size="27" fill="#6b6f68">Aufgaben · Kalender · Finanzen · Kochbuch</text>
+     </svg>`
+  );
+
   fs.mkdirSync(path.dirname(out), { recursive: true });
+  // removeAlpha() ist hier keine Kosmetik: die komponierten Ebenen bringen einen
+  // Alpha-Kanal mit, und Play weist Feature-Graphics mit Transparenz ab.
   await sharp({
     create: { width: 1024, height: 500, channels: 3, background: SPLASH_BG }
   })
-    .composite([{ input: logo, top: 100, left: 90 }])
+    .composite([
+      { input: logo, top: 120, left: 80 },
+      { input: text, top: 0, left: 0 }
+    ])
+    .flatten({ background: SPLASH_BG })
+    .removeAlpha()
     .png()
     .toFile(out);
 }
