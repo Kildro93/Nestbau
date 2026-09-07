@@ -85,12 +85,20 @@
       db = fb.firestore();
       storage = fb.storage();
 
-      // Emulator-Modus (für lokales Testing)
-      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-        log.info("Verwende Firebase Emulatoren...");
-        db.useEmulator('localhost', 8080);
-        auth.useEmulator('http://localhost:9099', { disableWarnings: true });
-        storage.useEmulator('localhost', 5000);
+      // Emulator-Modus: ausdruecklich einschalten, nicht am Hostnamen raten.
+      // Frueher galt jeder localhost-Aufruf als Emulator-Lauf - damit liess
+      // sich lokal nie gegen das echte Projekt testen, und ohne laufende
+      // Emulatoren endete der Login in ERR_CONNECTION_REFUSED auf Port 9099.
+      var emu = NB.config.firebase.emulator;
+      if (emu) {
+        if (emu === true) emu = {};
+        var host = emu.host || 'localhost';
+        log.info("Verwende Firebase-Emulatoren auf " + host);
+        db.useEmulator(host, emu.firestore || 8080);
+        auth.useEmulator('http://' + host + ':' + (emu.auth || 9099), { disableWarnings: true });
+        storage.useEmulator(host, emu.storage || 5000);
+      } else {
+        log.info("Verbunden mit dem echten Firebase-Projekt " + NB.config.firebase.projectId);
       }
 
       // Offline-Cache: Kochbuch bleibt ohne Netz lesbar; scheitert bei mehreren
