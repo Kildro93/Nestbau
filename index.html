@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1c7d70">
+<meta name="theme-color" content="#FF8C42">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,41 +14,42 @@
 <title>Nestbau</title>
 <style>
   :root {
-    --bg: #f4f2ee;
+    --bg: #fafaf8;
     --surface: #ffffff;
     --surface-sunken: #eeece7;
     --line: #e4e1da;
-    --ink: #1f2420;
-    --ink-soft: #6b6f68;
-    --flame: #1c7d70;
-    --flame-fg: #166b60;
-    --flame-tint: #dff0ec;
-    --teal: #4a6741;
-    --teal-tint: #e8efe2;
-    --amber: #8a5f22;
-    --amber-tint: #f3ead9;
-    --maroon: #b5342a;
-    --maroon-tint: #f7e3e0;
+    --ink: #333333;
+    --ink-soft: #666666;
+    --flame: #FF8C42;
+    --flame-fg: #8A4A12;
+    --flame-tint: #FFE4D0;
+    --on-warm: #2B1A0E;
+    --teal: #A8D5BA;
+    --teal-tint: #E8F4EE;
+    --amber: #FFB84D;
+    --amber-tint: #FFF0D6;
+    --maroon: #F0A0A0;
+    --maroon-tint: #FBE4E4;
     --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 10px 26px rgba(0,0,0,0.05);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #17181a; --surface: #201f22; --surface-sunken: #2c2c2c; --line: #333333;
       --ink: #f2f1ee; --ink-soft: #9a9d97;
-      --flame: #1c7d70; --flame-fg: #4fd0bc; --flame-tint: #10221f;
-      --teal: #8fae74; --teal-tint: #26301f;
-      --amber: #ffd43b; --amber-tint: #3a2c10;
-      --maroon: #ff4d4f; --maroon-tint: #3a1512;
+      --flame: #FF8C42; --flame-fg: #FFB84D; --flame-tint: #2b1a10; --on-warm: #2B1A0E;
+      --teal: #7EC483; --teal-tint: #1a2817;
+      --amber: #FFD96D; --amber-tint: #3a2c10;
+      --maroon: #F0A0A0; --maroon-tint: #3a1512;
       --shadow: 0 1px 2px rgba(0,0,0,0.28), 0 10px 26px rgba(0,0,0,0.32);
     }
   }
   :root[data-theme="dark"] {
     --bg: #17181a; --surface: #201f22; --surface-sunken: #2c2c2c; --line: #333333;
     --ink: #f2f1ee; --ink-soft: #9a9d97;
-    --flame: #1c7d70; --flame-fg: #4fd0bc; --flame-tint: #10221f;
-    --teal: #8fae74; --teal-tint: #26301f;
-    --amber: #ffd43b; --amber-tint: #3a2c10;
-    --maroon: #ff4d4f; --maroon-tint: #3a1512;
+    --flame: #FF8C42; --flame-fg: #FFB84D; --flame-tint: #2b1a10; --on-warm: #2B1A0E;
+    --teal: #7EC483; --teal-tint: #1a2817;
+    --amber: #FFD96D; --amber-tint: #3a2c10;
+    --maroon: #F0A0A0; --maroon-tint: #3a1512;
     --shadow: 0 1px 2px rgba(0,0,0,0.28), 0 10px 26px rgba(0,0,0,0.32);
   }
 
@@ -86,12 +87,12 @@
   .chip-btn, .filter-btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 7px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
   .chip-btn.active, .filter-btn.active { background: var(--flame-tint); color: var(--flame-fg); border-color: transparent; }
 
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; border: none; background: var(--flame); color: #fff; font-size: 0.92rem; font-weight: 700; padding: 13px 16px; border-radius: 12px; cursor: pointer; transition: filter 0.15s ease, transform 0.1s ease; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; border: none; background: var(--flame); color: var(--on-warm); font-size: 0.92rem; font-weight: 700; padding: 13px 16px; border-radius: 12px; cursor: pointer; transition: filter 0.15s ease, transform 0.1s ease; }
   .btn:active { transform: scale(0.98); }
-  .btn.cat-flame { background: var(--flame); color: #fff; }
-  .btn.cat-teal { background: var(--teal); color: #fff; }
-  .btn.cat-amber { background: var(--amber); color: #fff; }
-  .btn.cat-maroon { background: var(--maroon); color: #fff; }
+  .btn.cat-flame { background: var(--flame); color: var(--on-warm); }
+  .btn.cat-teal { background: var(--teal); color: var(--on-warm); }
+  .btn.cat-amber { background: var(--amber); color: var(--on-warm); }
+  .btn.cat-maroon { background: var(--maroon); color: var(--on-warm); }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) .btn.cat-teal { color: #14210b; }
     :root:not([data-theme="light"]) .btn.cat-amber { color: #2b1f00; }
