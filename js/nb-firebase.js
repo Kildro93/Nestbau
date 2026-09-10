@@ -383,14 +383,20 @@
         unsubs.push(hhRef().collection(c.coll).onSnapshot(function (qs) {
           var arr = [];
           qs.forEach(function (d) { arr.push(Object.assign({ id: d.id }, stripMeta(d.data()))); });
-          applyRemote(function (st) { st[c.key] = arr; });
+          applyRemoteCollection(c, arr);
         }, function (e) { log.error("Snapshot " + c.coll, e.code); NB.bus.emit("cloud:error", mapAuthError(e)); }));
       });
 
       unsubs.push(hhRef().collection("menuPlan").onSnapshot(function (qs) {
         var plan = {};
         qs.forEach(function (d) { plan[d.id] = stripMeta(d.data()); });
-        applyRemote(function (st) { st.menuPlan = plan; });
+        var pending = pendingPaths("menuPlan");
+        var st = NB.app ? NB.app.getState() : null;
+        Object.keys(pending).forEach(function (path) {
+          var day = path.slice("menuPlan/".length);
+          if (st && st.menuPlan && st.menuPlan[day]) plan[day] = st.menuPlan[day];
+        });
+        applyRemote(function (state) { state.menuPlan = plan; }, pending);
       }, function (e) { log.error("Snapshot menuPlan", e.code); }));
 
       log.info("Live-Abgleich aktiv");
@@ -411,15 +417,63 @@
     return o;
   }
 
-  function applyRemote(fn) {
+  /* Pfade, die lokal geaendert und noch nicht hochgeladen sind. Genau die
+     duerfen von einem eintreffenden Snapshot nicht ueberschrieben werden -
+     sonst verschwindet eine Aenderung, bevor sie je gesendet wurde. */
+  function pendingPaths(prefix) {
+    var prev = NB.store.get(hashesKey(), {});
+    var now = currentHashes();
+    var out = {};
+    Object.keys(now).forEach(function (path) {
+      if (prev[path] !== now[path] && (!prefix || path.indexOf(prefix + "/") === 0)) out[path] = true;
+    });
+    return out;
+  }
+
+  /* Referenzstand setzen, aber die noch offenen Pfade auf ihrem alten Wert
+     lassen - sonst gaelten sie als abgeglichen und wuerden nie gesendet. */
+  function snapshotHashesKeeping(keep) {
+    var prev = NB.store.get(hashesKey(), {});
+    var now = currentHashes();
+    Object.keys(keep || {}).forEach(function (path) {
+      if (prev[path] === undefined) delete now[path];
+      else now[path] = prev[path];
+    });
+    NB.store.set(hashesKey(), now);
+  }
+
+  function applyRemote(fn, keep) {
     if (!NB.app) return;
     applyingRemote = true;
     try {
       fn(NB.app.getState());
-      snapshotHashes();          // Fernstand ist jetzt der Referenzstand
+      snapshotHashesKeeping(keep);
       NB.app.persist();
       NB.app.render();
     } finally { applyingRemote = false; }
+    // Was lokal offen blieb, geht jetzt raus.
+    if (keep && Object.keys(keep).length) cloud.schedulePush();
+  }
+
+  /* Fernstand einer Sammlung uebernehmen, lokale offene Aenderungen behalten. */
+  function applyRemoteCollection(c, remoteArr) {
+    if (!NB.app) return;
+    var pending = pendingPaths(c.coll);
+    var keepIds = {};
+    Object.keys(pending).forEach(function (path) { keepIds[path.slice(c.coll.length + 1)] = true; });
+
+    var st = NB.app.getState();
+    var localById = {};
+    (st[c.key] || []).forEach(function (it) { if (it && it.id) localById[String(it.id)] = it; });
+
+    var merged = remoteArr.filter(function (it) { return !keepIds[String(it.id)]; });
+    Object.keys(keepIds).forEach(function (id) { if (localById[id]) merged.push(localById[id]); });
+
+    if (Object.keys(keepIds).length) {
+      log.info("Fernstand " + c.coll + " uebernommen, " + Object.keys(keepIds).length +
+               " lokale Aenderung(en) behalten und hochgeladen");
+    }
+    applyRemote(function (state) { state[c.key] = merged; }, pending);
   }
 
   // ---------- Schreiben aus der App heraus ----------
@@ -444,7 +498,7 @@
   cloud.snapshotHashes = snapshotHashes;
 
   cloud.pushChanges = function () {
-    if (!cloud.isWatching() || applyingRemote) return Promise.resolve({ skipped: true });
+    if (!cloud.canSync() || applyingRemote) return Promise.resolve({ skipped: true });
     var prev = NB.store.get(hashesKey(), {});
     var now = currentHashes();
     var st = NB.app.getState();
@@ -492,7 +546,7 @@
   /* Von der App-Bruecke nach jedem persist() aufgerufen – gebuendelt, damit
      Stepper-Klicks nicht je einen Schreibvorgang ausloesen. */
   cloud.schedulePush = function () {
-    if (!cloud.isWatching() || applyingRemote) return;
+    if (!cloud.canSync() || applyingRemote) return;
     if (pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(function () {
       pushTimer = null;
@@ -502,45 +556,46 @@
 
   NB.bus.on("app:persist", function () { cloud.schedulePush(); });
 
-  /* ---------- Auto-Start des Live-Abgleichs ----------
-     Bis 09/2026 musste der Abgleich nach jedem Neuladen von Hand gestartet
-     werden. Wer das vergass, arbeitete lokal weiter, und beim naechsten Start
-     ersetzte der Cloud-Stand die zwischenzeitlichen Aenderungen - ohne Meldung.
+  /* ---------- Abgleich laeuft immer ----------
+     Entscheidung 09/2026: kein Schalter mehr. Sobald Firebase konfiguriert
+     ist, dieses Geraet migriert ist, ein Haushalt gesetzt ist und jemand
+     angemeldet ist, wird abgeglichen - beim Laden, nach jedem Speichern und
+     nach jedem Wiederherstellen der Sitzung.
 
-     Jetzt: der Abgleich laeuft nach dem Laden von selbst wieder an, sobald
-     Firebase konfiguriert ist, dieses Geraet migriert ist, ein Haushalt
-     gesetzt ist und ein Nutzer angemeldet. "Pausieren" bleibt moeglich und
-     ueberdauert das Neuladen - es ist eine Entscheidung, kein Zufall. */
-  var SYNC_PREF = "cloud-sync-enabled";
+     Vorher hing beides am Live-Abgleich, der nach jedem Neuladen pausiert
+     war: wer ihn nicht von Hand startete, arbeitete lokal weiter, und der
+     naechste Snapshot ersetzte die Aenderungen lautlos. */
 
-  cloud.syncEnabled = function () { return NB.store.get(SYNC_PREF, true) !== false; };
-  cloud.setSyncEnabled = function (on) { NB.store.set(SYNC_PREF, !!on); };
-
-  function autostartReady() {
+  cloud.canSync = function () {
     return cloud.available()
-      && cloud.syncEnabled()
       && !!cloud.householdId()
-      && !!(NB.migrate && NB.migrate.isMigrated && NB.migrate.isMigrated())
-      && !cloud.isWatching();
-  }
+      && !!cloud.user()
+      && !!(NB.migrate && NB.migrate.isMigrated && NB.migrate.isMigrated());
+  };
 
-  /* Wird nach jedem Auth-Wechsel aufgerufen (siehe onAuthStateChanged in init)
-     und einmal beim Laden. Fehler bleiben leise: ohne Netz oder ohne Anmeldung
-     ist der pausierte Zustand das richtige Ergebnis, keine Stoerung. */
+  /* Setzt den Live-Abgleich in Gang. Fehler bleiben leise: ohne Netz oder ohne
+     Anmeldung ist "noch nicht" das richtige Ergebnis, keine Stoerung - der
+     naechste Aufruf (Auth-Wechsel, Reconnect) versucht es erneut. */
   cloud.autostart = function () {
-    if (!autostartReady()) return Promise.resolve(false);
+    if (cloud.isWatching()) return Promise.resolve(true);
+    if (!cloud.available() || !cloud.householdId()) return Promise.resolve(false);
+    if (!(NB.migrate && NB.migrate.isMigrated && NB.migrate.isMigrated())) return Promise.resolve(false);
     return cloud.init().then(function () {
-      if (!cloud.user() || !autostartReady()) return false;
+      if (!cloud.user() || cloud.isWatching()) return false;
       return cloud.watch().then(function () {
-        log.info("Live-Abgleich automatisch fortgesetzt");
+        log.info("Abgleich laeuft");
+        // Was waehrend der Pause lokal entstand, geht jetzt raus.
+        cloud.schedulePush();
         return true;
       });
     }).catch(function (e) {
-      log.warn("Auto-Start des Abgleichs nicht moeglich:", e.code || e.message);
+      log.warn("Abgleich noch nicht moeglich:", e.code || e.message);
       return false;
     });
   };
 
   // Ein Tick warten: nb-migrate.js wird nach dieser Datei geladen.
   setTimeout(function () { cloud.autostart(); }, 0);
+  // Nach einer Netzunterbrechung erneut versuchen.
+  NB.bus.on("online", function () { cloud.autostart(); });
 })();

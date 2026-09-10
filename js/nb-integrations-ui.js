@@ -324,7 +324,6 @@
           return Promise.reject(NB.error(NB.CODES.ABORTED, ""));
         }
         NB.migrate.backup();
-        NB.cloud.setSyncEnabled(true);
         return NB.cloud.watch({ force: true }).then(function () {
           NB.store.set("cloud-migrated", { at: Date.now(), household: NB.cloud.householdId(), joined: true });
         });
@@ -342,18 +341,12 @@
     } else {
       card.appendChild(el("div", { class: "nb-sub" },
         NB.cloud.isWatching()
-          ? "Live-Abgleich laeuft. Aenderungen gehen automatisch an alle Geraete."
-          : "Abgleich pausiert. Aenderungen bleiben auf diesem Geraet und koennen beim naechsten Start ueberschrieben werden."));
-      actions.appendChild(button(NB.cloud.isWatching() ? "Abgleich pausieren" : "Abgleich starten", function () {
-        // Die Entscheidung wird gemerkt und ueberdauert das Neuladen -
-        // sonst startet der Auto-Start das Pausieren sofort wieder.
-        if (NB.cloud.isWatching()) {
-          NB.cloud.setSyncEnabled(false);
-          NB.cloud.unwatch();
-          return Promise.resolve();
-        }
-        NB.cloud.setSyncEnabled(true);
-        return NB.cloud.watch();
+          ? "Abgleich laeuft. Jede Aenderung geht automatisch an alle Geraete."
+          : "Abgleich startet gleich von selbst. Bis dahin gespeicherte Aenderungen gehen danach mit raus."));
+      // Kein Ein/Aus mehr: der Abgleich laeuft. Der Knopf stoesst ihn nur
+      // sofort an, statt auf den naechsten Takt zu warten.
+      actions.appendChild(button("Jetzt abgleichen", function () {
+        return NB.cloud.autostart().then(function () { return NB.cloud.pushChanges(); });
       }));
       actions.appendChild(button("Erneut hochladen", function () {
         if (!window.confirm("Der lokale Stand ueberschreibt die Cloud. Fortfahren?")) {
