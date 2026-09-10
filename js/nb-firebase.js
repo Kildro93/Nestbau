@@ -109,6 +109,8 @@
     }).then(function () {
       auth.onAuthStateChanged(function (u) {
         NB.bus.emit("cloud:auth", { user: u ? { uid: u.uid, email: u.email, name: u.displayName } : null });
+        // Nach dem Wiederherstellen der Sitzung den Abgleich fortsetzen.
+        if (u && cloud.autostart) cloud.autostart();
       });
       log.info("Firebase bereit, Projekt " + NB.config.firebase.projectId);
       return true;
@@ -499,4 +501,46 @@
   };
 
   NB.bus.on("app:persist", function () { cloud.schedulePush(); });
+
+  /* ---------- Auto-Start des Live-Abgleichs ----------
+     Bis 09/2026 musste der Abgleich nach jedem Neuladen von Hand gestartet
+     werden. Wer das vergass, arbeitete lokal weiter, und beim naechsten Start
+     ersetzte der Cloud-Stand die zwischenzeitlichen Aenderungen - ohne Meldung.
+
+     Jetzt: der Abgleich laeuft nach dem Laden von selbst wieder an, sobald
+     Firebase konfiguriert ist, dieses Geraet migriert ist, ein Haushalt
+     gesetzt ist und ein Nutzer angemeldet. "Pausieren" bleibt moeglich und
+     ueberdauert das Neuladen - es ist eine Entscheidung, kein Zufall. */
+  var SYNC_PREF = "cloud-sync-enabled";
+
+  cloud.syncEnabled = function () { return NB.store.get(SYNC_PREF, true) !== false; };
+  cloud.setSyncEnabled = function (on) { NB.store.set(SYNC_PREF, !!on); };
+
+  function autostartReady() {
+    return cloud.available()
+      && cloud.syncEnabled()
+      && !!cloud.householdId()
+      && !!(NB.migrate && NB.migrate.isMigrated && NB.migrate.isMigrated())
+      && !cloud.isWatching();
+  }
+
+  /* Wird nach jedem Auth-Wechsel aufgerufen (siehe onAuthStateChanged in init)
+     und einmal beim Laden. Fehler bleiben leise: ohne Netz oder ohne Anmeldung
+     ist der pausierte Zustand das richtige Ergebnis, keine Stoerung. */
+  cloud.autostart = function () {
+    if (!autostartReady()) return Promise.resolve(false);
+    return cloud.init().then(function () {
+      if (!cloud.user() || !autostartReady()) return false;
+      return cloud.watch().then(function () {
+        log.info("Live-Abgleich automatisch fortgesetzt");
+        return true;
+      });
+    }).catch(function (e) {
+      log.warn("Auto-Start des Abgleichs nicht moeglich:", e.code || e.message);
+      return false;
+    });
+  };
+
+  // Ein Tick warten: nb-migrate.js wird nach dieser Datei geladen.
+  setTimeout(function () { cloud.autostart(); }, 0);
 })();

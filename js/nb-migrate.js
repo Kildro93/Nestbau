@@ -157,6 +157,7 @@
       }).then(function () {
         // Ab jetzt ist die Cloud fuehrend: Hashes als Referenz setzen und live gehen.
         NB.cloud.snapshotHashes();
+        if (NB.cloud.setSyncEnabled) NB.cloud.setSyncEnabled(true);
         NB.store.set("cloud-migrated", { at: Date.now(), household: NB.cloud.householdId() });
         NB.store.set("cloud-remote-migrated", true);
         step("watch", "Live-Abgleich starten …", 97);
