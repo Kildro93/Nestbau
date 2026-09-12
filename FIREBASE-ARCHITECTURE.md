@@ -102,7 +102,20 @@ households/{hid}
 joinCodes/{CODE}                      # Beitrittscodes (nur gezielter Zugriff)
 ├── householdId: string               # Referenz zu Haushalt
 └── ownerUid: string                  # Wer hat den Code erzeugt?
+
+users/{uid}                           # Profil pro Konto, unabhaengig vom Haushalt
+├── email: string
+├── name: string | null
+├── age: number | null
+├── weight: number | null
+├── createdAt: timestamp
+└── updatedAt: timestamp              # nur nach einem Speichern gesetzt
 ```
+
+Nur der Kontoinhaber selbst darf sein `users/{uid}`-Dokument lesen oder
+schreiben (`request.auth.uid == uid`), `list` ist gesperrt. Wird bei der
+ersten Anmeldung (Google, Email/Passwort oder wiederhergestellte Sitzung)
+automatisch angelegt, siehe `js/nb-profile.js`.
 
 ---
 

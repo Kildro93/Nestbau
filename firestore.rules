@@ -26,6 +26,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in household(hid).memberUids;
     }
 
+    // ---- Nutzerprofil ----
+    // Ein Dokument pro Konto, unabhaengig vom Haushalt (Name, Alter, Gewicht).
+    // Nur der Inhaber selbst darf es lesen oder schreiben; list bleibt verboten,
+    // damit niemand ueber die Sammlung nach anderen Profilen suchen kann.
+    match /users/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
     // ---- Beitrittscodes ----
     // Nur gezielter Zugriff auf einen bekannten Code. list ist nicht erlaubt,
     // damit niemand die Codes durchprobieren oder abgreifen kann.
