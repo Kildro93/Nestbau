@@ -37,6 +37,11 @@
     unconfigured: "var(--ink-soft)", blocked: "var(--maroon)", error: "var(--maroon)"
   };
 
+  // "login" oder "register" - merkt sich nur, welches Formular gerade offen
+  // ist; wird bei jedem render() neu aufgebaut, bleibt also nicht ueber einen
+  // Seiten-Neuladen hinweg erhalten (muss es auch nicht).
+  var emailAuthMode = "login";
+
   function injectStyle() {
     if (document.getElementById("nb-int-style")) return;
     var css =
@@ -232,6 +237,99 @@
     return card;
   }
 
+  // ---------- Anmeldung per Email/Passwort ----------
+  /* Alternative zu "Mit Google anmelden" - gleiche Firestore-Sicht danach,
+     nur ein anderer Weg zum auth.currentUser. Ein Formular deckt Login und
+     Registrierung ab; emailAuthMode entscheidet nur, welche Felder und
+     welcher Haupt-Knopf angezeigt werden. */
+  function emailAuthForm() {
+    var wrap = el("div", { style: "margin-top:10px;" });
+    var isRegister = emailAuthMode === "register";
+
+    var nameInput = null;
+    if (isRegister) {
+      nameInput = el("input", { type: "text", placeholder: "Name", autocomplete: "name" });
+      wrap.appendChild(nameInput);
+    }
+    var emailInput = el("input", {
+      type: "email", placeholder: "Email", autocomplete: "email",
+      style: isRegister ? "margin-top:8px;" : ""
+    });
+    var passInput = el("input", {
+      type: "password", placeholder: "Passwort",
+      autocomplete: isRegister ? "new-password" : "current-password",
+      style: "margin-top:8px;"
+    });
+    wrap.appendChild(emailInput);
+    wrap.appendChild(passInput);
+
+    var actions = el("div", { class: "nb-actions" });
+    actions.appendChild(button(isRegister ? "Konto erstellen" : "Anmelden", function () {
+      var email = emailInput.value.trim(), pass = passInput.value;
+      if (!email || !pass) return Promise.reject(NB.error(NB.CODES.ABORTED, "Email und Passwort eingeben."));
+      return isRegister
+        ? NB.cloud.registerEmail(email, pass, nameInput.value.trim())
+        : NB.cloud.signInEmail(email, pass);
+    }));
+    actions.appendChild(button(isRegister ? "Ich habe schon ein Konto" : "Neuer Account", function () {
+      emailAuthMode = isRegister ? "login" : "register";
+      render();
+      return Promise.resolve();
+    }, true));
+    wrap.appendChild(actions);
+
+    if (!isRegister) {
+      var forgot = el("div", { class: "nb-actions" });
+      forgot.appendChild(button("Passwort vergessen", function () {
+        var email = emailInput.value.trim();
+        if (!email) return Promise.reject(NB.error(NB.CODES.ABORTED, "Erst Email eintragen, dann nochmal klicken."));
+        return NB.cloud.resetPassword(email).then(function () {
+          msg(wrap, "Email zum Zuruecksetzen wurde verschickt.", false);
+        });
+      }, true));
+      wrap.appendChild(forgot);
+    }
+    return wrap;
+  }
+
+  // ---------- Profil (Name, Alter, Gewicht) ----------
+  function profileCard() {
+    var card = el("div", { class: "nb-card" });
+    card.appendChild(el("div", { class: "nb-head" }, '<span class="nb-title">Profil</span>'));
+    card.appendChild(el("div", { class: "nb-sub" }, "Gilt fuer dein Konto, unabhaengig vom Haushalt."));
+
+    function field(label, node) {
+      var f = el("div", { class: "nb-field" });
+      f.appendChild(el("label", {}, esc(label)));
+      f.appendChild(node);
+      return f;
+    }
+    var nameInput = el("input", { type: "text", placeholder: "Name" });
+    var ageInput = el("input", { type: "number", placeholder: "Alter", min: "0", max: "120", step: "1" });
+    var weightInput = el("input", { type: "number", placeholder: "Gewicht in kg", min: "0", max: "400", step: "0.1" });
+    card.appendChild(field("Name", nameInput));
+    card.appendChild(field("Alter", ageInput));
+    card.appendChild(field("Gewicht", weightInput));
+
+    NB.profile.load().then(function (data) {
+      if (!data) return;
+      nameInput.value = data.name || "";
+      ageInput.value = data.age != null ? data.age : "";
+      weightInput.value = data.weight != null ? data.weight : "";
+    }).catch(function (e) { msg(card, NB.errorText(e), true); });
+
+    var actions = el("div", { class: "nb-actions" });
+    actions.appendChild(button("Speichern", function () {
+      return NB.profile.save({
+        name: nameInput.value.trim() || null,
+        age: ageInput.value !== "" ? Number(ageInput.value) : null,
+        weight: weightInput.value !== "" ? Number(weightInput.value) : null
+      }).then(function () { msg(card, "Profil gespeichert.", false); });
+    }));
+    card.appendChild(actions);
+    return card;
+  }
+
   // ---------- Cloud / Kochbuch ----------
   function cloudCard() {
     var card = el("div", { class: "nb-card" });
@@ -266,6 +364,8 @@
         return NB.cloud.signInGoogle();
       }));
       card.appendChild(actions);
+      card.appendChild(el("div", { class: "nb-sub", style: "margin-top:10px;" }, "oder mit Email und Passwort:"));
+      card.appendChild(emailAuthForm());
       return card;
     }
 
@@ -403,6 +503,11 @@
 
     root.appendChild(el("p", { class: "eyebrow", style: "margin-top:24px;" }, "Cloud"));
     root.appendChild(cloudCard());
+
+    if (NB.cloud.available() && NB.cloud.user && NB.cloud.user()) {
+      root.appendChild(el("p", { class: "eyebrow", style: "margin-top:24px;" }, "Profil"));
+      root.appendChild(profileCard());
+    }
   }
 
   NB.ui = { render: render };

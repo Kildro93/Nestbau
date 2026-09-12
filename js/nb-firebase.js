@@ -138,6 +138,32 @@
       .catch(function (e) { throw mapAuthError(e); });
   };
 
+  /* Email/Passwort als Alternative zu Google – gleiche auth.currentUser-Sicht,
+     dieselben Firestore-Regeln (isMember prueft nur die uid, nicht den
+     Anbieter). onAuthStateChanged loest wie beim Google-Login "cloud:auth"
+     aus, worueber js/nb-profile.js das Firestore-Nutzerdokument anlegt. */
+  cloud.registerEmail = function (email, password, displayName) {
+    return cloud.init().then(function () {
+      return auth.createUserWithEmailAndPassword(email, password);
+    }).then(function (cred) {
+      if (!displayName) return cred.user;
+      return cred.user.updateProfile({ displayName: displayName }).then(function () { return cred.user; });
+    }).catch(function (e) { throw mapAuthError(e); });
+  };
+
+  cloud.signInEmail = function (email, password) {
+    return cloud.init().then(function () {
+      return auth.signInWithEmailAndPassword(email, password);
+    }).then(function (res) { return res.user; })
+      .catch(function (e) { throw mapAuthError(e); });
+  };
+
+  cloud.resetPassword = function (email) {
+    return cloud.init().then(function () {
+      return auth.sendPasswordResetEmail(email);
+    }).catch(function (e) { throw mapAuthError(e); });
+  };
+
   cloud.signOut = function () {
     cloud.unwatch();
     return cloud.init().then(function () { return auth.signOut(); });
@@ -151,6 +177,15 @@
     if (/unauthorized-domain/.test(c)) return NB.error(NB.CODES.NOT_CONFIGURED, "Diese Adresse ist in Firebase nicht als autorisierte Domain eingetragen.");
     if (/network-request-failed/.test(c)) return NB.error(NB.CODES.NETWORK, "Keine Verbindung zu Firebase.");
     if (/permission-denied/.test(c)) return NB.error(NB.CODES.PERMISSION, "Zugriff verweigert – Firestore-Regeln pruefen.");
+    if (c === "auth/email-already-in-use") return NB.error(NB.CODES.CONFLICT, "Fuer diese Adresse gibt es schon ein Konto.");
+    if (c === "auth/weak-password") return NB.error(NB.CODES.UNKNOWN, "Das Passwort braucht mindestens 6 Zeichen.");
+    if (c === "auth/invalid-email") return NB.error(NB.CODES.UNKNOWN, "Diese Email-Adresse sieht nicht richtig aus.");
+    // Bewusst dieselbe Meldung fuer beide Faelle - sonst liesse sich ueber die
+    // Antwort pruefen, welche Adressen registriert sind.
+    if (c === "auth/user-not-found" || c === "auth/wrong-password" || c === "auth/invalid-credential") {
+      return NB.error(NB.CODES.UNKNOWN, "Email oder Passwort stimmt nicht.");
+    }
+    if (c === "auth/too-many-requests") return NB.error(NB.CODES.RATE_LIMIT, "Zu viele Versuche. Bitte kurz warten.");
     return NB.error(NB.CODES.UNKNOWN, (e && e.message) || "Firebase-Fehler");
   }
   cloud.mapError = mapAuthError;
