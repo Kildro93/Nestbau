@@ -47,8 +47,10 @@ Beides steht ausfuehrlich in `BUILD-GUIDE.md`.
 | `js/nb-outlook-calendar.js` | Outlook/Microsoft Graph Integration |
 | `js/nb-calendar-sync.js` | Kalender-Abgleich (inkrementell, Konflikt-Handling) |
 | `js/nb-firebase.js` | Firestore für Kochbuch + Aufgaben + Events + Finanzen |
+| `js/nb-profile.js` | Nutzerprofil (`users/{uid}`), Sync-Präferenzen, mehrere Haushalte |
+| `js/nb-auth-gate.js` | Verpflichtendes Anmelde-Gate – nur aktiv, wenn Firebase konfiguriert ist |
 | `js/nb-migrate.js` | Migration vom localStorage zu Firebase |
-| `js/nb-integrations-ui.js` | Karten im Zahnrad-Menü |
+| `js/nb-integrations-ui.js` | Karten im Zahnrad-Menü (Login, Profil, Sync-Bereiche, Haushalte) |
 | `js/nb-config.js` | Config-Struktur (leer, Platzhalter) |
 | `js/nb-config.local.js` | **← NICHT IM REPO:** Client-IDs hier eintragen |
 | `oauth-callback.html` | Redirect-URL für OAuth-Flow |
@@ -58,12 +60,23 @@ Beides steht ausfuehrlich in `BUILD-GUIDE.md`.
 
 ## 🔄 Firestore-Integration (Optional)
 
-Ohne Einrichtung: App läuft lokal, alles im `localStorage`.
+Ohne Einrichtung (`js/nb-config.local.js` fehlt): App läuft lokal, alles im
+`localStorage`, ganz ohne Konto.
+
+**Sobald Firebase konfiguriert ist**, verlangt `js/nb-auth-gate.js` beim Start:
+Anmelden (Google oder Email/Passwort) → Profil (Name, optional Alter/Gewicht)
+→ Haushalt anlegen, per Code beitreten oder einen bekannten waehlen. Erst
+danach ist die App zu sehen. Wer die App also ohne Konto nutzen will, lässt
+Firebase in der eigenen Installation einfach unkonfiguriert.
 
 Mit Firebase:
 1. Aufgaben, Events, Finanzen werden zu Firestore synchronisiert
 2. Kalender werden in beide Richtungen abgeglichen (Google/Outlook ↔ Nestbau)
 3. Kochbuch ist gemeinsam über Beitrittscode teilbar
+4. Pro Bereich (Aufgaben/Kalender/Finanzen/Kochbuch) laesst sich der Sync im
+   Zahnrad-Menü einzeln abschalten – abgewaehlte Bereiche bleiben rein lokal
+5. Ein Konto kann mehrere Haushalte anlegen/joinen und im Zahnrad-Menü
+   zwischen ihnen wechseln
 
 **Setup:** Siehe [`docs/INTEGRATIONEN.md`](docs/INTEGRATIONEN.md)
 
@@ -71,10 +84,10 @@ Mit Firebase:
 
 | Bereich | lokal | Firebase | Bemerkung |
 |---|---|---|---|
-| Heute / Aufgaben | ✅ localStorage | ✅ Firestore collections | Wenn Firebase aktiv |
-| Kalender (lokal) | ✅ localStorage | ✅ Firestore | Live-Sync mit Google/Outlook |
-| Finanzen (Abos) | ✅ localStorage | ✅ Firestore | Wenn Firebase aktiv |
-| Kochbuch | ✅ localStorage | ✅ Firestore | Mit Bilderspeicher |
+| Heute / Aufgaben | ✅ localStorage | ✅ Firestore collections | Abschaltbar (Sync-Bereich "Aufgaben") |
+| Kalender (lokal) | ✅ localStorage | ✅ Firestore | Live-Sync mit Google/Outlook, abschaltbar |
+| Finanzen (Abos) | ✅ localStorage | ✅ Firestore | Abschaltbar (Sync-Bereich "Finanzen") |
+| Kochbuch | ✅ localStorage | ✅ Firestore | Mit Bilderspeicher, abschaltbar (inkl. Menüplan) |
 
 ## 💾 Daten sichern & laden
 

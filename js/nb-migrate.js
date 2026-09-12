@@ -290,5 +290,13 @@
     });
   }
 
-  migrate.isMigrated = function () { return !!NB.store.get("cloud-migrated"); };
+  /* Der Marker gehoert zu einem bestimmten Haushalt (household-Feld). Ohne
+     den Abgleich mit dem aktuell aktiven Haushalt wuerde ein Geraet mit
+     mehreren Haushalten (js/nb-profile.js, cloud.switchHousehold) nach dem
+     Wechsel faelschlich "schon migriert" melden und live gehen, ohne dass
+     im neuen Haushalt je ein Kochbuch hochgeladen wurde. */
+  migrate.isMigrated = function () {
+    var m = NB.store.get("cloud-migrated");
+    return !!(m && m.household === NB.cloud.householdId());
+  };
 })();

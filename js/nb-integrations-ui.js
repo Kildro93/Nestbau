@@ -330,6 +330,60 @@
     return card;
   }
 
+  // ---------- Sync-Bereiche (was wird mit dem Haushalt geteilt) ----------
+  var FEATURE_LABELS = { todos: "Aufgaben", calendar: "Kalender", budget: "Finanzen", meals: "Kochbuch" };
+  function syncFeaturesCard() {
+    var card = el("div", { class: "nb-card" });
+    card.appendChild(el("div", { class: "nb-head" }, '<span class="nb-title">Was wird geteilt</span>'));
+    card.appendChild(el("div", { class: "nb-sub" },
+      "Nur angehakte Bereiche gehen an den Haushalt - abgewaehlte bleiben rein lokal auf diesem Geraet."));
+
+    var prefs = NB.profile.syncPrefs();
+    var list = el("div", { class: "nb-cals" });
+    (NB.cloud.FEATURES || []).forEach(function (f) {
+      var row = el("label", { class: "nb-cal" });
+      var cb = el("input", { type: "checkbox" });
+      cb.checked = prefs[f] !== false;
+      cb.addEventListener("change", function () {
+        NB.profile.setSyncPref(f, cb.checked).catch(function (e) { msg(card, NB.errorText(e), true); });
+      });
+      row.appendChild(cb);
+      row.appendChild(el("span", {}, esc(FEATURE_LABELS[f] || f)));
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+    return card;
+  }
+
+  // ---------- Mehrere Haushalte ----------
+  function householdsCard() {
+    var card = el("div", { class: "nb-card" });
+    card.appendChild(el("div", { class: "nb-head" }, '<span class="nb-title">Meine Haushalte</span>'));
+    var list = el("div", { class: "nb-cals" });
+    card.appendChild(list);
+
+    NB.profile.households().then(function (households) {
+      list.innerHTML = "";
+      if (!households.length) {
+        list.appendChild(el("div", { class: "nb-sub" }, "Noch keine gespeicherten Haushalte."));
+        return;
+      }
+      var activeId = NB.cloud.householdId();
+      households.forEach(function (h) {
+        var row = el("div", { class: "nb-cal" });
+        row.appendChild(el("span", {}, esc(h.name || h.id) + (h.id === activeId ? " (aktiv)" : "")));
+        if (h.id !== activeId) {
+          row.appendChild(button("Wechseln", function () {
+            return NB.profile.switchHousehold(h.id);
+          }, true));
+        }
+        list.appendChild(row);
+      });
+    }).catch(function (e) { msg(card, NB.errorText(e), true); });
+
+    return card;
+  }
+
   // ---------- Cloud / Kochbuch ----------
   function cloudCard() {
     var card = el("div", { class: "nb-card" });
@@ -507,6 +561,8 @@
     if (NB.cloud.available() && NB.cloud.user && NB.cloud.user()) {
       root.appendChild(el("p", { class: "eyebrow", style: "margin-top:24px;" }, "Profil"));
       root.appendChild(profileCard());
+      root.appendChild(syncFeaturesCard());
+      if (NB.cloud.householdId()) root.appendChild(householdsCard());
     }
   }
 
