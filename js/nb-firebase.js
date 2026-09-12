@@ -96,7 +96,9 @@
         log.info("Verwende Firebase-Emulatoren auf " + host);
         db.useEmulator(host, emu.firestore || 8080);
         auth.useEmulator('http://' + host + ':' + (emu.auth || 9099), { disableWarnings: true });
-        storage.useEmulator(host, emu.storage || 5000);
+        // 9199 ist der Standardport des Storage-Emulators. 5000 gehoert
+        // Firebase Hosting und kollidiert, sobald Hosting dazukommt.
+        storage.useEmulator(host, emu.storage || 9199);
       } else {
         log.info("Verbunden mit dem echten Firebase-Projekt " + NB.config.firebase.projectId);
       }

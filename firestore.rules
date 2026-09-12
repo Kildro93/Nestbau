@@ -26,10 +26,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in household(hid).memberUids;
     }
 
-    // ---- Nutzerprofil ----
-    // Ein Dokument pro Konto, unabhaengig vom Haushalt (Name, Alter, Gewicht).
-    // Nur der Inhaber selbst darf es lesen oder schreiben; list bleibt verboten,
-    // damit niemand ueber die Sammlung nach anderen Profilen suchen kann.
+    // ---- Nutzerprofile ----
+    /* Ein Dokument pro Konto, unabhaengig vom Haushalt (js/nb-profile.js):
+       email, name, age, weight. Nur der Inhaber liest und schreibt es, list
+       bleibt verboten - sonst liesse sich die Sammlung nach anderen Profilen
+       durchsuchen. Den Anzeigenamen der Partnerin liefert
+       households/{hid}/members/{uid}; die Email-Adresse verlaesst so nie das
+       eigene Konto.
+
+       Bewusst ohne Pflichtfeld uid: nb-profile.js schreibt es nicht, der
+       Dokumentname ist bereits die uid. Eine Feldpruefung haette das Anlegen
+       des Profils beim ersten Login abgelehnt. */
     match /users/{uid} {
       allow get: if signedIn() && request.auth.uid == uid;
       allow list: if false;
@@ -59,7 +66,37 @@ service cloud.firestore {
       // Mitglieder duerfen den Haushalt pflegen.
       allow update: if isMember(hid)
                     // Besitzer bleibt Besitzer, sonst koennte sich jemand hochstufen.
-                    && request.resource.data.ownerUid == resource.data.ownerUid;
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    // Ergaenzt 2026-09-12: ohne hasAll konnte ein Mitglied das
+                    // andere einfach aus memberUids streichen und es damit aus
+                    // dem gemeinsamen Haushalt aussperren.
+                    && request.resource.data.memberUids.hasAll(resource.data.memberUids);
+
+      // Trennung: der Besitzer darf jemanden entfernen - bleibt dabei aber
+      // selbst Besitzer und Mitglied.
+      allow update: if isMember(hid)
+                    && household(hid).ownerUid == request.auth.uid
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && request.auth.uid in request.resource.data.memberUids;
+
+      /* Austritt: Spiegelbild des Beitritts – jeder entfernt genau sich selbst
+         aus der Mitgliederliste, sonst bleibt alles unveraendert.
+
+         Der Besitzer ist ausgenommen: ginge er, bliebe ein Haushalt mit einem
+         ownerUid zurueck, der nicht mehr Mitglied ist - niemand koennte ihn
+         dann noch pflegen oder aufloesen. Er loescht den Haushalt stattdessen
+         (allow delete unten).
+
+         Ergaenzt 2026-09-12, zusammen mit dem hasAll oben: ohne diese Regel
+         haette das hasAll auch das Verlassen gesperrt, nicht nur das
+         Hinauswerfen. */
+      allow update: if signedIn()
+                    && request.auth.uid != resource.data.ownerUid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids'])
+                    && resource.data.memberUids.hasAll(request.resource.data.memberUids)
+                    && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+                    && request.auth.uid in resource.data.memberUids
+                    && !(request.auth.uid in request.resource.data.memberUids);
 
       // Beitritt: ein Angemeldeter darf sich selbst – und nur sich selbst –
       // zur Mitgliederliste hinzufuegen. Sonst bleibt alles unveraendert.

@@ -19,6 +19,8 @@ __pycache__/
 .claudian/
 .obsidian/
 *.local.*
+# ... die Vorlagen daneben gehoeren aber ins Repository.
+!*.local.example.js
 
 # Android / Capacitor Build
 www/

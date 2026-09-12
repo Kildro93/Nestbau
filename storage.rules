@@ -2,19 +2,29 @@ rules_version = '2';
 
 /* Nestbau v2 – Storage-Regeln fuer Rezept- und Zutatenfotos.
 
-   Bilder liegen unter households/{hid}/images/{datei}. Zugriff hat nur, wer im
+   Bilder liegen unter households/{hid}/… – heute images/{hash}.{ext}, bei
+   Bedarf auch recipes/{recipeId}/images/{datei}. Zugriff hat nur, wer im
    passenden Firestore-Dokument als Mitglied eingetragen ist – die Mitgliedschaft
-   wird also nur an einer Stelle gepflegt.
+   wird also nur an einer Stelle gepflegt (households/{hid}.memberUids).
+
+   Getestet: tests/rules/storage-rules.mjs (npm run test:rules).
 
    Einspielen: firebase deploy --only storage */
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    match /households/{hid}/images/{file} {
+    /* Bisher nur .../images/{file}. Mit {rest=**} deckt dieselbe Regel auch
+       households/{hid}/recipes/{recipeId}/images/{file} ab, ohne dass die
+       Mitgliedschaftspruefung ein zweites Mal irgendwo stehen muss. */
+    match /households/{hid}/{rest=**} {
 
+      /* Das exists() vor dem get() ist noetig: fehlt der Haushalt, liefert
+         firestore.get() null und die Auswertung bricht mit einer
+         EvaluationException ab, statt sauber abzulehnen. */
       function isMember() {
         return request.auth != null
+               && firestore.exists(/databases/(default)/documents/households/$(hid))
                && request.auth.uid in firestore.get(/databases/(default)/documents/households/$(hid)).data.memberUids;
       }
 

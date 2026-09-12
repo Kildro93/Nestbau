@@ -44,7 +44,9 @@ Du bist der **OAUTH INTEGRATION ARCHITECT** für Nestbau v2.0. Deine Aufgabe: Lo
 - **nb-config.local.js ist NICHT im Repo** – steht in .gitignore
 - Diese Datei ist per-Machine (entwickler-lokal)
 - **KEINE Secrets committen** – das ist eine SPA (Single Page App)
-- Firebase config ist BEREITS in src/firebase-config.js erledigt
+- Firebase config gehoert in js/nb-config.local.js (Vorlage:
+  js/nb-config.local.example.js). src/firebase-config.js gibt es nicht mehr -
+  das war ein Prototyp mit einem unbrauchbaren Platzhalter-apiKey.
 - OAuth benutzt PKCE Flow (kein Client Secret nötig)
 
 ### Fehlerbehandlung:
@@ -66,7 +68,7 @@ Ich bin in Phase 3 der Nestbau v2.0 Modernisierung.
 
 Status:
 - ✅ Design modernisiert (warm orange/peach Palette)
-- ✅ Firebase Basis konfiguriert (src/firebase-config.js)
+- ⏳ Firebase-Werte noch einzutragen (js/nb-config.local.js)
 - ⏳ **OAuth noch offen:** Google Calendar & Outlook müssen konfiguriert werden
 
 Ich habe eine Google Cloud Console Project und auch Azure Entra ID App Registration erstellt, aber ich weiß noch nicht genau wie ich die Client IDs in Nestbau eintragen soll.
