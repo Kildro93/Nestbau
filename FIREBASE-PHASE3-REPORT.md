@@ -43,7 +43,7 @@ nicht.
 
 ### 3.1 Regeltests (neu)
 
-`tests/rules/` – 38 Tests gegen die echten Emulatoren, ohne Netz und ohne
+`tests/rules/` – 37 Tests gegen die echten Emulatoren, ohne Netz und ohne
 Firebase-Projekt:
 
 ```
@@ -51,7 +51,7 @@ ok 1 - Haushaltsdaten          ok 5 - Nutzerprofile
 ok 2 - Beitritt                ok 6 - Alles andere
 ok 3 - Sammlungen der Features ok 7 - Storage
 ok 4 - Mitgliedereintraege
-# tests 38   # pass 38   # fail 0
+# tests 37   # pass 37   # fail 0
 ```
 
 Die Dateien heissen bewusst `*-rules.mjs` und nicht `*.test.mjs`: `npm test`
@@ -73,16 +73,17 @@ Haushaltsdokument, lieferte der Aufruf `null` und die Auswertung endete in einer
 `EvaluationException`. Ein `firestore.exists()` steht jetzt davor. Abgelehnt
 wurde vorher auch – aber als Fehler, nicht als Entscheidung.
 
-**`users/{uid}` war nicht vorgesehen.** Profile sind jetzt geregelt: nur das
-eigene Konto liest und schreibt, kein `list`, und die `uid` im Dokument bleibt
-fest.
+**`users/{uid}`** kam waehrenddessen aus einer anderen Richtung dazu: Commit
+`7a18a3d` brachte Email/Passwort-Anmeldung und `js/nb-profile.js` mit. Die
+Regeln dafuer stehen auf `main`, Tests dazu gab es keine – die liefert dieser
+Branch nach.
 
-Beim Schreiben der Tests fiel dabei eine Falle auf, die es wert ist, notiert zu
-werden: `match /{sub=**}` innerhalb von `users/{uid}` trifft auch **null
-Segmente** und damit das Profildokument selbst – die Regel „uid bleibt fest"
-waere ausgehebelt gewesen. Es steht deshalb `match /{sub}/{rest=**}` dort, was
-mindestens ein Segment verlangt. Im Console-Playground waere das kaum
-aufgefallen.
+Bemerkenswert an der Zusammenfuehrung: Der Entwurf hier verlangte urspruenglich
+ein Pflichtfeld `uid` im Profildokument. `js/nb-profile.js` schreibt aber
+`email`, `name`, `age`, `weight` – **kein `uid`**, denn der Dokumentname ist
+bereits die uid. Die strengere Regel haette das Anlegen des Profils beim ersten
+Login abgelehnt. Es gilt deshalb die Fassung von `main`, und der Test schreibt
+genau die Form, die `nb-profile.js` erzeugt.
 
 ### 3.3 Storage-Emulator auf 9199
 
@@ -222,7 +223,7 @@ fuer SPAs. Konsequenz, die auch im Code steht: **keine fremden Skripte in
 npm run serve         # http://localhost:3000
 npm run emulators     # Auth 9099, Firestore 8080, Storage 9199
 npm test              # 43 Tests, ohne Emulatoren
-npm run test:rules    # 38 Regeltests, startet die Emulatoren selbst
+npm run test:rules    # 37 Regeltests, startet die Emulatoren selbst
 npm run deploy:rules  # Regeln + Indizes hochladen
 ```
 

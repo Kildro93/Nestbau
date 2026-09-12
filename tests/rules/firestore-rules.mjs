@@ -170,27 +170,27 @@ describe('Mitgliedereintraege', () => {
 });
 
 describe('Nutzerprofile', () => {
-  it('nur das eigene Profil ist les- und schreibbar', async () => {
-    await assertSucceeds(setDoc(doc(asA(), 'users', A), { uid: A, displayName: 'Indra' }));
+  /* Form wie in js/nb-profile.js - dort steht bewusst kein uid-Feld drin,
+     der Dokumentname ist bereits die uid. */
+  const PROFIL = { email: 'indra@example.com', name: 'Indra', age: 33, weight: 72 };
+
+  it('das eigene Profil laesst sich anlegen und aendern', async () => {
+    await assertSucceeds(setDoc(doc(asA(), 'users', A), PROFIL));
     await assertSucceeds(getDoc(doc(asA(), 'users', A)));
+    await assertSucceeds(updateDoc(doc(asA(), 'users', A), { weight: 71 }));
+    await assertSucceeds(deleteDoc(doc(asA(), 'users', A)));
+  });
+
+  it('fremde Profile bleiben unsichtbar und unveraenderbar', async () => {
+    await assertSucceeds(setDoc(doc(asA(), 'users', A), PROFIL));
     await assertFails(getDoc(doc(asB(), 'users', A)));
-    await assertFails(setDoc(doc(asB(), 'users', A), { uid: A, displayName: 'gekapert' }));
+    await assertFails(setDoc(doc(asB(), 'users', A), { name: 'gekapert' }));
+    await assertFails(deleteDoc(doc(asB(), 'users', A)));
+    await assertFails(getDoc(doc(asAnon(), 'users', A)));
   });
 
   it('Profile lassen sich nicht auflisten', async () => {
     await assertFails(getDocs(collection(asA(), 'users')));
-  });
-
-  it('eigene Unterebenen sind erreichbar, fremde nicht', async () => {
-    await assertSucceeds(setDoc(doc(asA(), 'users', A, 'geraete', 'handy'), { lastSync: 1 }));
-    await assertFails(setDoc(doc(asB(), 'users', A, 'geraete', 'handy'), { lastSync: 2 }));
-  });
-
-  it('die uid im Profil bleibt fest', async () => {
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'users', A), { uid: A });
-    });
-    await assertFails(updateDoc(doc(asA(), 'users', A), { uid: B }));
   });
 });
 

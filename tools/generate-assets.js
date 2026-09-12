@@ -13,12 +13,8 @@ const sharp = require("sharp");
 
 const ROOT = path.join(__dirname, "..");
 const SVG = path.join(ROOT, "icon.svg");
-const BG = "#1c7d70";          // Deckfarbe des adaptiven Icons
-// Die Farbe, die die App tatsaechlich rendert. manifest.json nennt seit dem
-// Design-Umbau #fafaf8, wirksam wird das aber erst, wenn der Inline-<style>
-// in index.html nestbau-design.css nicht mehr ueberschreibt.
-// Siehe BUILD-GUIDE.md > Bekannte Stolpersteine.
-const SPLASH_BG = "#f4f2ee";
+const BG = "#FF8C42";          // Deckfarbe des adaptiven Icons
+const SPLASH_BG = "#fafaf8";
 
 // Android-Launcher: legacy (voll) und adaptiv (Vordergrund mit Sicherheitsrand).
 const DENSITIES = {
@@ -66,7 +62,7 @@ async function featureGraphic(out) {
   const text = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500">
        <text x="360" y="228" font-family="${FONT}" font-size="76" font-weight="700" fill="#1f2420">Nestbau</text>
-       <text x="360" y="288" font-family="${FONT}" font-size="34" font-weight="500" fill="#1c7d70">Haushalt Manager</text>
+       <text x="360" y="288" font-family="${FONT}" font-size="34" font-weight="500" fill="#B8541A">Haushalt Manager</text>
        <text x="362" y="348" font-family="${FONT}" font-size="27" fill="#6b6f68">Aufgaben · Kalender · Finanzen · Kochbuch</text>
      </svg>`
   );

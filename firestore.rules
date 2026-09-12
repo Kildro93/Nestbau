@@ -26,37 +26,27 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in household(hid).memberUids;
     }
 
-    // ---- Beitrittscodes ----
-    // Nur gezielter Zugriff auf einen bekannten Code. list ist nicht erlaubt,
-    // damit niemand die Codes durchprobieren oder abgreifen kann.
     // ---- Nutzerprofile ----
-    /* Ein Profil pro Konto. Nur das Konto selbst liest und schreibt es; den
-       Anzeigenamen der Partnerin liefert households/{hid}/members/{uid}. So
-       verlaesst die Email-Adresse nie das eigene Konto. */
+    /* Ein Dokument pro Konto, unabhaengig vom Haushalt (js/nb-profile.js):
+       email, name, age, weight. Nur der Inhaber liest und schreibt es, list
+       bleibt verboten - sonst liesse sich die Sammlung nach anderen Profilen
+       durchsuchen. Den Anzeigenamen der Partnerin liefert
+       households/{hid}/members/{uid}; die Email-Adresse verlaesst so nie das
+       eigene Konto.
+
+       Bewusst ohne Pflichtfeld uid: nb-profile.js schreibt es nicht, der
+       Dokumentname ist bereits die uid. Eine Feldpruefung haette das Anlegen
+       des Profils beim ersten Login abgelehnt. */
     match /users/{uid} {
       allow get: if signedIn() && request.auth.uid == uid;
       allow list: if false;
-
-      allow create: if signedIn()
-                    && request.auth.uid == uid
-                    && request.resource.data.uid == uid;
-
-      allow update: if signedIn()
-                    && request.auth.uid == uid
-                    // uid ist die Identitaet des Dokuments und bleibt fest.
-                    && request.resource.data.uid == resource.data.uid;
-
+      allow create, update: if signedIn() && request.auth.uid == uid;
       allow delete: if signedIn() && request.auth.uid == uid;
-
-      /* Geraete-/Sync-Zustand des eigenen Kontos. Bewusst {sub}/{rest=**} und
-         nicht {sub=**}: ein rekursiver Platzhalter trifft auch null Segmente
-         und wuerde damit das Profildokument selbst noch einmal treffen - die
-         Regel "uid bleibt fest" waere ausgehebelt. */
-      match /{sub}/{rest=**} {
-        allow read, write: if signedIn() && request.auth.uid == uid;
-      }
     }
 
+    // ---- Beitrittscodes ----
+    // Nur gezielter Zugriff auf einen bekannten Code. list ist nicht erlaubt,
+    // damit niemand die Codes durchprobieren oder abgreifen kann.
     match /joinCodes/{code} {
       allow get: if signedIn();
       allow list: if false;

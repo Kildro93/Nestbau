@@ -344,27 +344,22 @@ App auf dem Gerät genauso. Wer die gezeigten Inhalte ändern will, ändert
 | Store-Seite zeigt „App-Bundle abgelehnt" | Falscher Signaturschlüssel oder versionCode schon vergeben | Abschnitt 5 und `VERSIONING.md` |
 | Neue Web-Datei fehlt in der App, ohne Fehlermeldung | Datei nicht in `FILES` in `tools/build-web.js` | `npm run build:web` bricht seitdem mit der Liste der unaufgelösten Verweise ab |
 
-### `nestbau-design.css` wirkt nicht
+### `nestbau-design.css` wirkte nicht (behoben 2026-09-12)
 
-`index.html` bindet in Zeile 13 `nestbau-design.css` ein, definiert aber ab
-Zeile 15 in einem Inline-`<style>` dieselben `:root`-Variablen (`--bg`,
-`--flame`, `--surface` …) noch einmal mit den alten Werten. Bei gleicher
-Spezifität gewinnt die spätere Regel – das Stylesheet wird also für die gesamte
-Farbpalette überschrieben. Sichtbar bleibt nur, was es zusätzlich mitbringt
-(Schatten, Abrundungen).
+`index.html` band `nestbau-design.css` ein, definierte aber im Inline-`<style>`
+dieselben `:root`-Variablen (`--bg`, `--flame`, `--surface` …) noch einmal mit
+den alten Werten. Bei gleicher Spezifität gewann die spätere Regel – das
+Stylesheet wurde also für die gesamte Farbpalette überschrieben.
 
-Für den Android-Build hat das eine konkrete Folge: Splash-Hintergrund
-(`capacitor.config.json` → `SplashScreen.backgroundColor`) und Statusleiste
-(`StatusBar.backgroundColor`) sind bewusst auf `#f4f2ee` und `#1c7d70` gesetzt –
-auf das, was die App **tatsächlich** rendert, nicht auf die Werte in
-`manifest.json` (`#fafaf8` / `#FF8C42`). Eine orange Statusleiste über einer
-grün gehaltenen App sähe wie ein Fehler aus.
-
-Wird der Konflikt behoben – der Inline-Block gehört vor den `<link>`, oder die
-doppelten Variablen müssen raus – sind drei Stellen nachzuziehen:
-`capacitor.config.json` (zwei Farben), `SPLASH_BG` in `tools/generate-assets.js`
-und die Screenshots (`node tools/screenshots.js`). Auch das Launcher-Icon passt
-dann nicht mehr: `icon.svg` ist grün, die neue Palette orange.
+Behoben: der doppelte `:root`-Block und die duplizierten Komponenten-Regeln
+(Buttons, Cards, Chips, Pills, Tabbar, Formulare …) sind aus `index.html`
+entfernt; nur die dort einzigartigen App-Styles (Kalender, Uhr, Kochbuch,
+Menüplan) bleiben inline. `capacitor.config.json` (Splash + Statusleiste),
+`SPLASH_BG`/`BG` in `tools/generate-assets.js` und `icon.svg` sind auf die
+neue Palette (Orange `#FF8C42` / Peach `#FFB84D` / Grün `#7EC483`) nachgezogen.
+Screenshots (`node tools/screenshots.js`) und die PNG-Icons unter
+`assets/icons/` sind noch mit der alten Palette gerendert und sollten bei
+Gelegenheit neu erzeugt werden.
 
 ---
 
