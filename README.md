@@ -108,3 +108,14 @@ Alles steckt in `index.html`. Bearbeiten, speichern, Seite mit Strg+F5 neu laden
 - **Retry mit Backoff + Jitter** (bis 30s Pause)
 - **Honoert `Retry-After`-Header**
 - **Offline-Cache** (Firestore: Tab-übergreifend)
+
+## 🔒 Repository-Regeln
+
+Gilt für alle, die an diesem Projekt arbeiten (Menschen und Chat-Sessions/Bots):
+
+- Der Branch `main` ist ueber ein GitHub-Ruleset namens **`main-guard`**
+  geschuetzt (Settings → Rules → Rulesets). Stand beim Anlegen: Enforcement
+  "Disabled", Regel "Restrict deletions" aktiv, Target-Branch `main` noch
+  einzutragen.
+- Wer das Ruleset weiter konfiguriert oder den Enforcement-Status aendert,
+  sollte diesen Abschnitt hier aktuell halten.
