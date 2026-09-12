@@ -31,22 +31,39 @@
   /* Sammlungen im Firestore <-> Felder im lokalen State.
      Aufgaben/Listen: lists (top-level), Aufgaben in items[] gepacked.
      Events, Subscriptions: top-level Arrays.
-     Kochbuch: Subsammlungen pro Haushalt. */
+     Kochbuch: Subsammlungen pro Haushalt.
+     "feature" gruppiert die Sammlungen fuer den Sync-Schalter pro Bereich
+     (js/nb-profile.js, users/{uid}.syncPrefs) - eine Kochbuch-Aenderung
+     betrifft z. B. fuenf Sammlungen plus menuPlan, aber einen Schalter. */
   var COLLECTIONS = [
     // Aufgaben & Listen (Haushalts-Level)
-    { key: "lists", coll: "lists", household: true },
+    { key: "lists", coll: "lists", household: true, feature: "todos" },
     // Events & Kalender (Haushalts-Level)
-    { key: "events", coll: "events", household: true },
+    { key: "events", coll: "events", household: true, feature: "calendar" },
     // Finanzen (Haushalts-Level)
-    { key: "subscriptions", coll: "subscriptions", household: true },
+    { key: "subscriptions", coll: "subscriptions", household: true, feature: "budget" },
     // Kochbuch (Haushalts-Subsammlungen, wie zuvor)
-    { key: "ingredients", coll: "ingredients", household: true },
-    { key: "recipes", coll: "recipes", household: true },
-    { key: "ingredientCategories", coll: "ingredientCategories", household: true },
-    { key: "ingredientGroups", coll: "ingredientGroups", household: true },
-    { key: "customDishCategories", coll: "dishCategories", household: true }
+    { key: "ingredients", coll: "ingredients", household: true, feature: "meals" },
+    { key: "recipes", coll: "recipes", household: true, feature: "meals" },
+    { key: "ingredientCategories", coll: "ingredientCategories", household: true, feature: "meals" },
+    { key: "ingredientGroups", coll: "ingredientGroups", household: true, feature: "meals" },
+    { key: "customDishCategories", coll: "dishCategories", household: true, feature: "meals" }
   ];
   cloud.COLLECTIONS = COLLECTIONS;
+  cloud.FEATURES = ["todos", "calendar", "budget", "meals"];
+
+  /* Nur die Sammlungen, deren Bereich der Nutzer nicht abgeschaltet hat.
+     Ohne geladene Praeferenzen (nb-profile.js fehlt oder noch nicht bereit)
+     gilt "alles an" - das bisherige Verhalten bleibt der sichere Default. */
+  function activeCollections() {
+    var prefs = NB.profile && NB.profile.syncPrefs ? NB.profile.syncPrefs() : null;
+    if (!prefs) return COLLECTIONS;
+    return COLLECTIONS.filter(function (c) { return prefs[c.feature] !== false; });
+  }
+  function menuPlanActive() {
+    var prefs = NB.profile && NB.profile.syncPrefs ? NB.profile.syncPrefs() : null;
+    return !prefs || prefs.meals !== false;
+  }
 
   // ---------- SDK laden ----------
   function loadScript(src) {
@@ -281,6 +298,16 @@
     }).catch(function (e) { throw mapAuthError(e); });
   };
 
+  /* Zu einem anderen, bereits beigetretenen Haushalt wechseln (mehrere
+     Haushalte pro Konto, siehe js/nb-profile.js). Erst die Listener des
+     alten Haushalts abbestellen, dann umschalten - sonst liefen kurzzeitig
+     Snapshots aus zwei Haushalten gegeneinander. */
+  cloud.switchHousehold = function (hid) {
+    cloud.unwatch();
+    cloud.setHouseholdId(hid);
+    return cloud.autostart();
+  };
+
   cloud.householdInfo = function () {
     return cloud.init().then(function () { return hhRef().get(); }).then(function (s) {
       return s.exists ? Object.assign({ id: s.id }, s.data()) : null;
@@ -416,7 +443,7 @@
         return true;
       });
     }).then(function () {
-      COLLECTIONS.forEach(function (c) {
+      activeCollections().forEach(function (c) {
         unsubs.push(hhRef().collection(c.coll).onSnapshot(function (qs) {
           var arr = [];
           qs.forEach(function (d) { arr.push(Object.assign({ id: d.id }, stripMeta(d.data()))); });
@@ -424,21 +451,34 @@
         }, function (e) { log.error("Snapshot " + c.coll, e.code); NB.bus.emit("cloud:error", mapAuthError(e)); }));
       });
 
-      unsubs.push(hhRef().collection("menuPlan").onSnapshot(function (qs) {
-        var plan = {};
-        qs.forEach(function (d) { plan[d.id] = stripMeta(d.data()); });
-        var pending = pendingPaths("menuPlan");
-        var st = NB.app ? NB.app.getState() : null;
-        Object.keys(pending).forEach(function (path) {
-          var day = path.slice("menuPlan/".length);
-          if (st && st.menuPlan && st.menuPlan[day]) plan[day] = st.menuPlan[day];
-        });
-        applyRemote(function (state) { state.menuPlan = plan; }, pending);
-      }, function (e) { log.error("Snapshot menuPlan", e.code); }));
+      if (menuPlanActive()) {
+        unsubs.push(hhRef().collection("menuPlan").onSnapshot(function (qs) {
+          var plan = {};
+          qs.forEach(function (d) { plan[d.id] = stripMeta(d.data()); });
+          var pending = pendingPaths("menuPlan");
+          var st = NB.app ? NB.app.getState() : null;
+          Object.keys(pending).forEach(function (path) {
+            var day = path.slice("menuPlan/".length);
+            if (st && st.menuPlan && st.menuPlan[day]) plan[day] = st.menuPlan[day];
+          });
+          applyRemote(function (state) { state.menuPlan = plan; }, pending);
+        }, function (e) { log.error("Snapshot menuPlan", e.code); }));
+      }
 
       log.info("Live-Abgleich aktiv");
       NB.bus.emit("cloud:watching", { on: true });
     });
+  };
+
+  /* Sync-Bereiche wurden umgestellt, waehrend der Abgleich schon lief: die
+     laufenden Listener decken die neue Auswahl nicht ab, also einmal neu
+     aufsetzen. Kein Datenverlust, weil unwatch() nur Listener abbestellt -
+     lokale Aenderungen und ihre Hashes bleiben unberuehrt und gehen beim
+     naechsten watch()/push wie gewohnt raus. */
+  cloud.restartWatch = function () {
+    if (!cloud.isWatching()) return cloud.autostart();
+    cloud.unwatch();
+    return cloud.watch();
   };
 
   cloud.unwatch = function () {
@@ -521,14 +561,16 @@
     var st = NB.app ? NB.app.getState() : null;
     var h = {};
     if (!st) return h;
-    COLLECTIONS.forEach(function (c) {
+    activeCollections().forEach(function (c) {
       (st[c.key] || []).forEach(function (item) {
         if (item && item.id) h[c.coll + "/" + item.id] = NB.util.hash(JSON.stringify(item));
       });
     });
-    Object.keys(st.menuPlan || {}).forEach(function (day) {
-      h["menuPlan/" + day] = NB.util.hash(JSON.stringify(st.menuPlan[day]));
-    });
+    if (menuPlanActive()) {
+      Object.keys(st.menuPlan || {}).forEach(function (day) {
+        h["menuPlan/" + day] = NB.util.hash(JSON.stringify(st.menuPlan[day]));
+      });
+    }
     return h;
   }
   function snapshotHashes() { NB.store.set(hashesKey(), currentHashes()); }
