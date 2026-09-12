@@ -12,6 +12,30 @@ python -m http.server 8000
 # Browser: http://localhost:8000
 ```
 
+## 📱 Android-App
+
+Nestbau laeuft zusaetzlich als native Android-App (Capacitor 7). Der Web-Code ist
+derselbe – `index.html` und `js/` werden in die App gepackt.
+
+```bash
+npm install
+npm run sync                          # PWA -> www/ -> android/
+node tools/android-build.js debug     # APK zum Testen
+node tools/android-build.js release   # signiertes AAB fuer den Play Store
+```
+
+| Dokument | Inhalt |
+|---|---|
+| [`BUILD-GUIDE.md`](BUILD-GUIDE.md) | Build, Signatur, Berechtigungen, Play Console, Stolpersteine |
+| [`VERSIONING.md`](VERSIONING.md) | versionCode/versionName, Release-Ablauf |
+| [`CHANGELOG.md`](CHANGELOG.md) | Was in welcher Version dazugekommen ist |
+| [`play-store/`](play-store/) | Store-Texte, Grafiken, Screenshots, Datenschutz-Vorlage |
+
+Zwei Punkte, die man vor dem ersten Store-Upload kennen sollte: die
+Cloud-Funktionen sind im gebauten Paket noch **nicht** aktiv, und der
+Release-Keystore liegt ausserhalb des Repositories und braucht ein Backup.
+Beides steht ausfuehrlich in `BUILD-GUIDE.md`.
+
 ## 📁 Struktur
 
 | Datei | Zweck |

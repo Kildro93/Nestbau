@@ -340,10 +340,13 @@
       }, true));
     } else {
       card.appendChild(el("div", { class: "nb-sub" },
-        NB.cloud.isWatching() ? "Live-Abgleich laeuft." : "Migriert, Live-Abgleich pausiert."));
-      actions.appendChild(button(NB.cloud.isWatching() ? "Abgleich pausieren" : "Abgleich starten", function () {
-        if (NB.cloud.isWatching()) { NB.cloud.unwatch(); return Promise.resolve(); }
-        return NB.cloud.watch();
+        NB.cloud.isWatching()
+          ? "Abgleich laeuft. Jede Aenderung geht automatisch an alle Geraete."
+          : "Abgleich startet gleich von selbst. Bis dahin gespeicherte Aenderungen gehen danach mit raus."));
+      // Kein Ein/Aus mehr: der Abgleich laeuft. Der Knopf stoesst ihn nur
+      // sofort an, statt auf den naechsten Takt zu warten.
+      actions.appendChild(button("Jetzt abgleichen", function () {
+        return NB.cloud.autostart().then(function () { return NB.cloud.pushChanges(); });
       }));
       actions.appendChild(button("Erneut hochladen", function () {
         if (!window.confirm("Der lokale Stand ueberschreibt die Cloud. Fortfahren?")) {

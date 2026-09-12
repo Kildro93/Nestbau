@@ -37,3 +37,8 @@ dist/
 *.keystore
 keystore.properties
 android/keystore.properties
+
+# Laufzeit-Logs (Emulator, Firestore)
+emulator.log
+firestore-debug.log
+*.log

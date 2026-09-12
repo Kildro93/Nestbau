@@ -69,6 +69,16 @@ service cloud.firestore {
         allow delete: if isMember(hid) && (request.auth.uid == uid || household(hid).ownerUid == request.auth.uid);
       }
 
+      // ---- Haushalts-Daten (Aufgaben, Termine, Finanzen) ----
+      // Ergaenzt 2026-09-08: der Sync deckt seit der Erweiterung von
+      // NB.cloud.COLLECTIONS auch diese drei Sammlungen ab, die Regeln taten
+      // es nicht. Der Auffangblock am Ende sperrte sie, damit scheiterte die
+      // Migration schon beim ersten Schreibvorgang (lists steht an erster
+      // Stelle) - ohne dass die Oberflaeche einen Grund nannte.
+      match /lists/{doc}                  { allow read, write: if isMember(hid); }
+      match /events/{doc}                 { allow read, write: if isMember(hid); }
+      match /subscriptions/{doc}          { allow read, write: if isMember(hid); }
+
       // ---- Kochbuch ----
       match /ingredients/{doc}            { allow read, write: if isMember(hid); }
       match /recipes/{doc}                { allow read, write: if isMember(hid); }

@@ -34,7 +34,13 @@
       storageBucket: "",
       messagingSenderId: "",
       appId: "",
-      sdkVersion: "10.14.1"           // compat-Builds vom Google-CDN
+      sdkVersion: "10.14.1",          // compat-Builds vom Google-CDN
+
+      // Emulator-Modus. Standard: aus - localhost spricht mit dem echten
+      // Projekt. Zum Testen gegen die lokale Suite in nb-config.local.js
+      // setzen: emulator: true (Standardports) oder ein Objekt mit
+      // { host, firestore, auth, storage }. Siehe Emulator-Setup.md.
+      emulator: false
     },
 
     // ---- Sync-Verhalten ----

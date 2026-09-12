@@ -888,6 +888,18 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  /* Bildvorschau ueber DOM-API statt innerHTML: eine Foto-Adresse aus einer
+     importierten Sicherung koennte sonst aus dem src-Attribut ausbrechen. */
+  function setPhotoPreview(elId, src, css) {
+    var box = document.getElementById(elId);
+    if (!box) return;
+    box.textContent = "";
+    var img = document.createElement("img");
+    img.src = src;
+    img.alt = "";
+    if (css) img.style.cssText = css;
+    box.appendChild(img);
+  }
   function fmtMoney(n) { return "CHF " + (Math.round((n || 0) * 20) / 20).toFixed(2); }
   function fmtNum(n, digits) { return (n || 0).toFixed(digits == null ? 0 : digits); }
   function pad2(n) { return (n < 10 ? "0" : "") + n; }
@@ -1845,7 +1857,7 @@
     var file = this.files && this.files[0]; if (!file) return;
     resizeImageFile(file, 480, function (dataUrl) {
       ingPhotoDraft = dataUrl;
-      document.getElementById("ing-photo-preview").innerHTML = '<img src="' + dataUrl + '" alt="" style="width:100%;height:100%;object-fit:cover;">';
+      setPhotoPreview("ing-photo-preview", dataUrl, "width:100%;height:100%;object-fit:cover;");
     });
   });
   document.getElementById("ing-extra-nutri-toggle").addEventListener("click", function () {
@@ -1965,7 +1977,7 @@
     ingVitaminDraft = (ing.vitamins || []).slice(); renderIngVitaminChips();
     ingAminoDraft = (ing.aminoAcids || []).slice(); renderIngAminoChips();
     ingAllergyDraft = (ing.allergyIds || []).slice(); renderIngAllergenRow();
-    if (ing.photo) { ingPhotoDraft = ing.photo; document.getElementById("ing-photo-preview").innerHTML = '<img src="' + ing.photo + '" alt="" style="width:100%;height:100%;object-fit:cover;">'; }
+    if (ing.photo) { ingPhotoDraft = ing.photo; setPhotoPreview("ing-photo-preview", ing.photo, "width:100%;height:100%;object-fit:cover;"); }
     f.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   document.getElementById("ing-form").addEventListener("submit", function (e) {
@@ -2275,7 +2287,7 @@
     var file = this.files && this.files[0]; if (!file) return;
     resizeImageFile(file, 480, function (dataUrl) {
       recipePhotoDraft = dataUrl;
-      document.getElementById("recipe-photo-preview").innerHTML = '<img src="' + dataUrl + '" alt="">';
+      setPhotoPreview("recipe-photo-preview", dataUrl);
     });
   });
   function updateWeightPerPortionHelper() {
@@ -2332,7 +2344,7 @@
     recipeDishDraft = (r.categories || []).slice(); renderRecipeDishToggle();
     recipeIngDraft = (r.ingredients || []).slice(); renderRecipeIngList();
     recipeUtensilDraft = (r.utensils || []).slice(); renderRecipeUtensilChips();
-    if (r.photo) { recipePhotoDraft = r.photo; document.getElementById("recipe-photo-preview").innerHTML = '<img src="' + r.photo + '" alt="">'; }
+    if (r.photo) { recipePhotoDraft = r.photo; setPhotoPreview("recipe-photo-preview", r.photo); }
     updateWeightPerPortionHelper();
     f.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -2630,11 +2642,11 @@
     var days = weekBounds(new Date(menuSelected));
     return days.map(function (d) {
       var key = dateKey(d);
-      return '<option value="' + key + '"' + (key === excludeKey ? " disabled" : "") + '>' + WEEKDAYS[(d.getDay() + 6) % 7] + " " + d.getDate() + "." + "</option>";
+      return '<option value="' + escapeHtml(key) + '"' + (key === excludeKey ? " disabled" : "") + '>' + WEEKDAYS[(d.getDay() + 6) % 7] + " " + d.getDate() + "." + "</option>";
     }).join("");
   }
   function menuEntryThumbHtml(entry, r, slot) {
-    if (entry.type === "recipe" && r && r.photo) return '<img src="' + r.photo + '" alt="">';
+    if (entry.type === "recipe" && r && r.photo) return '<img src="' + escapeHtml(r.photo) + '" alt="">';
     var emoji = entry.type === "recipe" ? slot.emoji : "🍽️";
     return "<span>" + emoji + "</span>";
   }
