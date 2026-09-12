@@ -10,7 +10,7 @@
     },
     "storage": {
       "host": "127.0.0.1",
-      "port": 5000
+      "port": 9199
     },
     "hub": {
       "host": "127.0.0.1",
@@ -22,7 +22,12 @@
     },
     "ui": {
       "enabled": false
-    }
+    },
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5001
+    },
+    "singleProjectMode": true
   },
   "firestore": {
     "rules": "firestore.rules",
@@ -30,5 +35,16 @@
   },
   "storage": {
     "rules": "storage.rules"
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.local.*"
+      ]
+    }
+  ]
 }

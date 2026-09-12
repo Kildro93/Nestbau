@@ -134,7 +134,7 @@ So wird deine lokale Config nicht versehentlich ins Repo gepusht.
 |-------|-------|
 | `js/nb-config.js` | Standard-Konfiguration (ins Repo) |
 | `js/nb-config.local.js` | **NEU** – Deine lokalen Credentials (NICHT ins Repo) |
-| `src/firebase-config.js` | Firebase-Credentials (bereits konfiguriert) |
+| `js/nb-config.local.example.js` | Vorlage zum Kopieren (im Repo) |
 | `firestore.rules` | Firestore Security Rules (lokal deployen mit `firebase deploy`) |
 | `storage.rules` | Storage Security Rules (lokal deployen mit `firebase deploy`) |
 

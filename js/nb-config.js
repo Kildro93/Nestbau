@@ -39,7 +39,8 @@
       // Emulator-Modus. Standard: aus - localhost spricht mit dem echten
       // Projekt. Zum Testen gegen die lokale Suite in nb-config.local.js
       // setzen: emulator: true (Standardports) oder ein Objekt mit
-      // { host, firestore, auth, storage }. Siehe Emulator-Setup.md.
+      // { host, firestore, auth, storage }. Standardports: Firestore 8080,
+      // Auth 9099, Storage 9199. Siehe FIREBASE-SETUP.md.
       emulator: false
     },
 

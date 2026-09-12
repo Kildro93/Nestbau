@@ -13,7 +13,11 @@
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "test:integration": "node --test \"tests/integration/*.test.mjs\"",
     "audit:security": "node scripts/security-check.mjs",
-    "audit:perf": "node scripts/perf-audit.mjs"
+    "audit:perf": "node scripts/perf-audit.mjs",
+    "serve": "node scripts/server.mjs",
+    "emulators": "firebase emulators:start --only auth,firestore,storage",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project nestbau-rules-test \"node --test --test-concurrency=1 tests/rules/*.mjs\"",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",
@@ -24,8 +28,11 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^7.6.9",
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.14.1",
+    "firebase-tools": "^13.31.1",
+    "jsdom": "^25.0.1",
     "puppeteer": "^25.10.0",
-    "sharp": "^0.35.4",
-    "jsdom": "^25.0.1"
+    "sharp": "^0.35.4"
   }
 }

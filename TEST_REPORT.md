@@ -64,7 +64,7 @@
 - ✓ Firebase Emulatoren laufen:
   - Auth: localhost:9099
   - Firestore: localhost:8080
-  - Storage: localhost:5000
+  - Storage: localhost:9199
 - ✓ firebase.json konfiguriert
 - ✓ nb-config.local.js erstellt
 - ✓ nb-firebase.js angepasst für Emulator-Modus
