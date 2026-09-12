@@ -79,6 +79,25 @@ service cloud.firestore {
                     && request.resource.data.ownerUid == resource.data.ownerUid
                     && request.auth.uid in request.resource.data.memberUids;
 
+      /* Austritt: Spiegelbild des Beitritts – jeder entfernt genau sich selbst
+         aus der Mitgliederliste, sonst bleibt alles unveraendert.
+
+         Der Besitzer ist ausgenommen: ginge er, bliebe ein Haushalt mit einem
+         ownerUid zurueck, der nicht mehr Mitglied ist - niemand koennte ihn
+         dann noch pflegen oder aufloesen. Er loescht den Haushalt stattdessen
+         (allow delete unten).
+
+         Ergaenzt 2026-09-12, zusammen mit dem hasAll oben: ohne diese Regel
+         haette das hasAll auch das Verlassen gesperrt, nicht nur das
+         Hinauswerfen. */
+      allow update: if signedIn()
+                    && request.auth.uid != resource.data.ownerUid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids'])
+                    && resource.data.memberUids.hasAll(request.resource.data.memberUids)
+                    && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+                    && request.auth.uid in resource.data.memberUids
+                    && !(request.auth.uid in request.resource.data.memberUids);
+
       // Beitritt: ein Angemeldeter darf sich selbst – und nur sich selbst –
       // zur Mitgliederliste hinzufuegen. Sonst bleibt alles unveraendert.
       allow update: if signedIn()

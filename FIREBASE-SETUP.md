@@ -63,7 +63,7 @@ npm run emulators    # Auth 9099, Firestore 8080, Storage 9199
 ## Regeln
 
 ```bash
-npm run test:rules     # 37 Regeltests gegen die Emulatoren, ohne Netz
+npm run test:rules     # 41 Regeltests gegen die Emulatoren, ohne Netz
 npm run deploy:rules   # firestore:rules, firestore:indexes, storage
 ```
 

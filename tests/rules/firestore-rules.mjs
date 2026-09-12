@@ -93,6 +93,28 @@ describe('Haushaltsdaten', () => {
     await assertFails(updateDoc(doc(asA(), 'households', HID), { memberUids: [B] }));
   });
 
+  it('ein Mitglied darf den Haushalt selbst verlassen', async () => {
+    await assertSucceeds(updateDoc(doc(asB(), 'households', HID), { memberUids: [A] }));
+  });
+
+  it('beim Austritt laesst sich niemand sonst mitentfernen', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'households', HID), { memberUids: [A, B, X] });
+    });
+    // B geht und nimmt X gleich mit - nicht erlaubt.
+    await assertFails(updateDoc(doc(asB(), 'households', HID), { memberUids: [A] }));
+  });
+
+  it('beim Austritt laesst sich nichts anderes mitaendern', async () => {
+    await assertFails(updateDoc(doc(asB(), 'households', HID), {
+      memberUids: [A], name: 'Beim Rausgehen umbenannt',
+    }));
+  });
+
+  it('der Besitzer kann sich nicht selbst entfernen – der Haushalt wuerde verwaisen', async () => {
+    await assertFails(updateDoc(doc(asA(), 'households', HID), { memberUids: [B] }));
+  });
+
   it('nur der Besitzer loescht den Haushalt', async () => {
     await assertFails(deleteDoc(doc(asB(), 'households', HID)));
     await assertSucceeds(deleteDoc(doc(asA(), 'households', HID)));

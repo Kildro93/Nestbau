@@ -43,7 +43,7 @@ nicht.
 
 ### 3.1 Regeltests (neu)
 
-`tests/rules/` – 37 Tests gegen die echten Emulatoren, ohne Netz und ohne
+`tests/rules/` – 41 Tests gegen die echten Emulatoren, ohne Netz und ohne
 Firebase-Projekt:
 
 ```
@@ -51,7 +51,7 @@ ok 1 - Haushaltsdaten          ok 5 - Nutzerprofile
 ok 2 - Beitritt                ok 6 - Alles andere
 ok 3 - Sammlungen der Features ok 7 - Storage
 ok 4 - Mitgliedereintraege
-# tests 37   # pass 37   # fail 0
+# tests 41   # pass 41   # fail 0
 ```
 
 Die Dateien heissen bewusst `*-rules.mjs` und nicht `*.test.mjs`: `npm test`
@@ -63,10 +63,23 @@ durchlaufen. Die bestehenden 43 Tests bleiben unberuehrt.
 **Mitglieder konnten einander aussperren.** `allow update` auf
 `households/{hid}` prueft, dass der Besitzer Besitzer bleibt – aber nicht, dass
 `memberUids` niemanden verliert. Ein Mitglied konnte das andere aus der Liste
-streichen und damit aus dem gemeinsamen Haushalt aussperren. Jetzt greift
-`hasAll(resource.data.memberUids)`; zum Entfernen gibt es eine eigene Regel,
-die nur der Besitzer erfuellt – und auch er kann sich nicht selbst
-herausloeschen.
+streichen und damit aus dem gemeinsamen Haushalt aussperren.
+
+Jetzt greift `hasAll(resource.data.memberUids)`. Weil das aber auch das
+*Verlassen* gesperrt haette, stehen daneben zwei eigene Regeln – der Fall war
+beim ersten Anlauf uebersehen worden und fiel erst bei einer gezielten
+Gegenprobe auf:
+
+| | |
+|---|---|
+| Mitglied verlaesst den Haushalt selbst | erlaubt |
+| Besitzer entfernt ein Mitglied | erlaubt |
+| Mitglied wirft ein anderes hinaus | gesperrt |
+| Besitzer entfernt sich selbst | gesperrt |
+
+Die letzte Zeile ist Absicht: ginge der Besitzer, bliebe ein Haushalt mit einem
+`ownerUid` zurueck, der nicht mehr Mitglied ist – niemand koennte ihn dann noch
+pflegen oder aufloesen. Er loescht ihn stattdessen.
 
 **`firestore.get()` in `storage.rules` brach ab, statt abzulehnen.** Fehlte das
 Haushaltsdokument, lieferte der Aufruf `null` und die Auswertung endete in einer
@@ -223,7 +236,7 @@ fuer SPAs. Konsequenz, die auch im Code steht: **keine fremden Skripte in
 npm run serve         # http://localhost:3000
 npm run emulators     # Auth 9099, Firestore 8080, Storage 9199
 npm test              # 43 Tests, ohne Emulatoren
-npm run test:rules    # 37 Regeltests, startet die Emulatoren selbst
+npm run test:rules    # 41 Regeltests, startet die Emulatoren selbst
 npm run deploy:rules  # Regeln + Indizes hochladen
 ```
 
